@@ -39,6 +39,10 @@ SUBROUTINE init_pdaf_parse()
 ! *** Parse command line options ***
 ! **********************************
   
+  ! General settings for Parallelization
+  handle = 'n_modeltasks'                 ! dim_ens = n_modeltasks
+  CALL parse(handle, n_modeltasks)
+  
   ! Settings for model and time stepping
   handle = 'model_error'             ! Control application of model error
   CALL parse(handle, model_error)

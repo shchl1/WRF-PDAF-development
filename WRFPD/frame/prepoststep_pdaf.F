@@ -31,6 +31,7 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
      state_p, Uinv, ens_p, flag)
 
   USE mpi                      ! MPI
+  USE netcdf
   USE mod_parallel_pdaf, &     ! Parallelization
        ONLY: mype_filter, npes_filter, COMM_filter, MPIerr, MPIstatus
   USE mod_assimilation, &      ! Assimilation variables
@@ -87,6 +88,10 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   integer                   :: k,mm,dimx,dimy,dimz,dimp,     &
                                cnt1,cnt2,cnt3,cnt4,cnt5
   integer,dimension(6) :: m
+  character(len=100) :: out_pathf="..\output\fore.nc'"  
+                        !- 查询目录文件夹状态或使用目录文件夹，允许字符串中存在空格 
+  character(len=100) :: out_patha="..\output\anal.nc'"  
+                        !- 查询目录文件夹状态或使用目录文件夹，允许字符串中存在空格 
 
 ! **********************
 ! *** INITIALIZATION ***
@@ -99,26 +104,19 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
 
   IF (mype_filter == 0) THEN
      IF (firsttime) THEN
-        WRITE (*, '(8x, a)') 'Analyze forecasted state ensemble'
-     ELSE
-        WRITE (*, '(8x, a)') 'Analyze and write assimilated state ensemble'
-     END IF
-  END IF
-  ! Allocate fields
-  write (*,*) 'dim_state= ', dim_state
-  
-
-  IF (mype_filter == 0) THEN
-     IF (firsttime) THEN
         WRITE (*, '(8x, a)') 'Analyze initial state ensemble'
         anastr = 'ini'
+        call init_file_syn_obs(dim_state/8, out_pathf, 1) 
+        call init_file_syn_obs(dim_state/8, out_patha, 1)  
      ELSE
         IF (step<0) THEN
            WRITE (*, '(8x, a)') 'Analyze and write forecasted state ensemble'
            anastr = 'for'
+		   ! call write_syn_obs(step, out_pathf, dim_state/8, observation_f, 0)
         ELSE
            WRITE (*, '(8x, a)') 'Analyze and write assimilated state ensemble'
            anastr = 'ana'
+		   ! call write_syn_obs(step, out_patha, dim_state/8, observation_f, 0)
         END IF
      END IF
   END IF

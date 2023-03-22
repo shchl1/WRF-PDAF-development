@@ -81,6 +81,21 @@ SUBROUTINE init_parallel_pdaf(dim_ens, screen)
   LOGICAL :: iniflag            ! Flag whether MPI is initialized
 
 
+! ***********************************
+! *** Some optional functionality ***
+! ***********************************
+
+! *** Parse command line options   ***
+! *** This is optional, but useful ***
+
+  call init_pdaf_parse()
+
+
+! *** Initial Screen output ***
+! *** This is optional      ***
+
+  IF (mype_world == 0) call init_pdaf_info()
+
   ! *** Initialize MPI if not yet initialized ***
   CALL MPI_Initialized(iniflag, MPIerr)
   IF (.not.iniflag) THEN
@@ -242,5 +257,5 @@ SUBROUTINE init_parallel_pdaf(dim_ens, screen)
   ! model-internal variables should be initialized at this point.
   
   MPI_COMM_MODEL = COMM_model
-
+  
 END SUBROUTINE init_parallel_pdaf
