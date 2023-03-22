@@ -1,0 +1,29 @@
+taskid: 32 hostname: prod-110
+ module_io_quilt_old.F        2931 F
+Quilting with   1 groups of   0 I/O tasks.
+ Ntasks in X            8 , ntasks in Y            8
+  Domain # 1: dx = 15000.000 m
+--- ERROR: ghg_input available only for these radiation schemes: CAM, RRTM, RRTMG, RRTMG_fast
+           And the LW and SW schemes must be reasonably paired together:
+           OK = CAM LW with CAM SW
+           OK = RRTM, RRTMG LW or SW, RRTMG_fast LW or SW may be mixed
+WRF V4.4.1 MODEL
+No git found or not a git repository, git commit version not available.
+ *************************************
+ Parent domain
+ ids,ide,jds,jde            1         201           1         201
+ ims,ime,jms,jme           -4          32          94         132
+ ips,ipe,jps,jpe            1          25         101         125
+ *************************************
+DYNAMICS OPTION: Eulerian Mass Coordinate
+   alloc_space_field: domain            1 ,               23931512  bytes allocated
+  med_initialdata_input: calling input_input
+   Input data is acceptable to use:
+ CURRENT DATE          = 2007-09-01_00:00:00
+ SIMULATION START DATE = 2007-09-01_00:00:00
+Max map factor in domain 1 =  1.00. Scale the dt in the model accordingly.
+INPUT LandUse = "USGS"
+ LANDUSE TYPE = "USGS" FOUND          41  CATEGORIES           2  SEASONS WATER CATEGORY =           16  SNOW CATEGORY =            0
+Abort(269041413) on node 32 (rank 32 in comm 0): Fatal error in PMPI_Comm_rank: Invalid communicator, error stack:
+PMPI_Comm_rank(108): MPI_Comm_rank(comm=0x0, rank=0x7ffffffefb84) failed
+PMPI_Comm_rank(64).: Invalid communicator

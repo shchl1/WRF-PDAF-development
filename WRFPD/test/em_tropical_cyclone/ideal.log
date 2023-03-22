@@ -1,0 +1,12 @@
+
+ Initialize communicators for assimilation with PDAF
+   !!! Resetting number of parallel ensemble tasks to total number of PEs!
+
+                  PE configuration:
+   world   filter     model        couple     filterPE
+   rank     rank   task   rank   task   rank    T/F
+  ----------------------------------------------------------
+     0       0      1      0      1      0       T
+
+
+ starting wrf task            0  of            1

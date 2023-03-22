@@ -1,0 +1,80 @@
+taskid: 0 hostname: prod-102
+ module_io_quilt_old.F        2931 F
+Quilting with   1 groups of   0 I/O tasks.
+ Ntasks in X            1 , ntasks in Y            1
+  Domain # 1: dx = 15000.000 m
+--- ERROR: ghg_input available only for these radiation schemes: CAM, RRTM, RRTMG, RRTMG_fast
+           And the LW and SW schemes must be reasonably paired together:
+           OK = CAM LW with CAM SW
+           OK = RRTM, RRTMG LW or SW, RRTMG_fast LW or SW may be mixed
+WRF V4.4.1 MODEL
+No git found or not a git repository, git commit version not available.
+ *************************************
+ Parent domain
+ ids,ide,jds,jde            1         201           1         201
+ ims,ime,jms,jme           -4         206          -4         206
+ ips,ipe,jps,jpe            1         201           1         201
+ *************************************
+DYNAMICS OPTION: Eulerian Mass Coordinate
+   alloc_space_field: domain            1 ,              563061288  bytes allocated
+  med_initialdata_input: calling input_input
+   Input data is acceptable to use: wrfinput_d01
+ CURRENT DATE          = 2007-09-01_00:00:00
+ SIMULATION START DATE = 2007-09-01_00:00:00
+Timing for processing wrfinput file (stream 0) for domain        1:    0.11836 elapsed seconds
+Max map factor in domain 1 =  1.00. Scale the dt in the model accordingly.
+INPUT LandUse = "USGS"
+ LANDUSE TYPE = "USGS" FOUND          41  CATEGORIES           2  SEASONS WATER CATEGORY =           16  SNOW CATEGORY =            0
+Timing for Writing wrfout_d01_2007-09-01_00:00:00 for domain        1:    1.40214 elapsed seconds
+ Tile Strategy is not specified. Assuming 1D-Y
+WRF TILE   1 IS      1 IE    201 JS      1 JE    100
+WRF NUMBER OF TILES =   1
+d01 2007-09-01_00:00:00  ----------------------------------------
+d01 2007-09-01_00:00:00  W-DAMPING  BEGINS AT W-COURANT NUMBER =    1.000000
+d01 2007-09-01_00:00:00  ----------------------------------------
+Timing for main: time 2007-09-01_00:01:00 on domain   1:    3.65524 elapsed seconds
+Timing for main: time 2007-09-01_00:02:00 on domain   1:    2.29608 elapsed seconds
+Timing for main: time 2007-09-01_00:03:00 on domain   1:    2.28856 elapsed seconds
+forrtl: error (78): process killed (SIGTERM)
+Image              PC                Roforrtl: error (78): process killed (SIGTERM)
+Image              PC                Routine            Line        Source             
+wrf.exe            00000000033096EB  for__signal_handl     Unknown  Unknown
+libpthread-2.28.s  000015555286FCE0  Unknown               Unknown  Unknown
+wrf.exe            0000000002D83A5D  Unknown               Unknown  Unknown
+wrf.exe            0000000002D8406A  Unknown               Unknown  Unknown
+wrf.exe            forrtl: error (78): process killed (SIGTERM)
+Image              PC                Routine            Line        Source    forrtl: error (78): process killed (SIGTERM)
+Image              PC                Routine            Line        Source             
+wrf.exe            00000000033096EB  for__signal_handl     Unknown  Unknown
+libpthread-2.28.s  000015555286FCE0  Unknown               Unknown  Unknown
+libc-2.28.so       0000155552236534  __read                Unknown  Unknown
+libc-2.28.so       00001555521A8FAB  Unknown               Unknown  Unknown
+libc-2.28.so       000015555219E13B  fread                 Unknown  Unknown
+libucs.so.0.0.0    000015535E39D5C9  Unknown               Unknown  Unknown
+libucs.so.0.0.0    000015535E39C7D6  Unknown               Unknown  Unknown
+libucs.so.0.0.0    000015535E31F2EB  Unknown               Unknown  Unknown
+libucs.so.0.0.0    000015535E31F7B7  Unknown               Unknown  Unknown
+libucs.so.0.0.0    000015535E31A84F  Unknown               Unknown  Unknown
+libucs.so.0.0.0    000015535E329C4F  Unknown               Unknown  Unknown
+libucs.so.0.0.0    000015535E3A625C  Unknown               Unknown  Unknown
+libucs.so.0.0.0    000015535E2EC624  Unknown               Unknown  Unknown
+libucs.so.0.0.0    000015535E2ECDF8  Unknown               Unknown  Unknown
+libucs.so.0.0.0    000015535E2ED080  ucs_debug_backtra     Unknown  Unknown
+libucs.so.0.0.0    000015535E2ED679  ucs_debug_print_b     Unknown  Unknown
+libucs.so.0.0.0    000015535E2EFD2E  ucs_handle_error      Unknown  Unknown
+libucs.so.0.0.0    000015535E2EFF0C  Unknown               Unknown  Unknown
+libucs.so.0.0.0    000015535E2F00DA  Unknown               Unknown  Unknown
+libpthread-2.28.s  000015555286FCE0  Unknown               Unknown  Unknown
+wrf.exe            0000000002D82C41  Unknown               Unknown  Unknown
+wrf.exe            0000000002D7E044  Unknown               Unknown  Unknown
+wrf.exe            0000000002D7BC16  Unknown               Unknown  Unknown
+wrf.exe            00000000025F03E6  Unknown               Unknown  Unknown
+wrf.exe            0000000001E9488C  Unknown               Unknown  Unknown
+wrf.exe            00000000016E089C  Unknown               Unknown  Unknown
+wrf.exe            00000000014FE9F8  Unknown               Unknown  Unknown
+wrf.exe            00000000005B76BB  Unknown               Unknown  Unknown
+wrf.exe            0000000000416298  Unknown               Unknown  Unknown
+wrf.exe            000000000041624F  Unknown               Unknown  Unknown
+wrf.exe            00000000004161E2  Unknown               Unknown  Unknown
+libc-2.28.so       0000155552150CF3  __libc_start_main     Unknown  Unknown
+wrf.exe            00000000004160EE  Unknown               Unknown  Unknown
