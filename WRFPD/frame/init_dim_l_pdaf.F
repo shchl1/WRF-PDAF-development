@@ -42,8 +42,8 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
   ! Template reminder - delete when implementing functionality
   ! WRITE (*,*) 'init_dim_l_pdaf: Set local state dimension here!'
 
-  ! dim_l = n_fields
-  dim_l = 1
+  dim_l = n_fields
+  ! dim_l = 1
 
 ! **********************************************
 ! *** Initialize coordinates of local domain ***
@@ -237,7 +237,7 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
   ! id_lstate_in_pstate = off_fields + domain_p - cnt1 - cnt2 - cnt3
 
   ALLOCATE(id_lstate_in_pstate(dim_l)) ! SCHEME 3
-  ! id_lstate_in_pstate = off_fields + domain_p
-  id_lstate_in_pstate = off_fields(5) + domain_p
+  id_lstate_in_pstate = off_fields + domain_p
+  ! id_lstate_in_pstate = off_fields(5) + domain_p
   
 END SUBROUTINE init_dim_l_pdaf
