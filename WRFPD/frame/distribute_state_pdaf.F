@@ -72,14 +72,14 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
    state_tmp =  &
      reshape(state_p(1:cnt1), &
      [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])          
-   head_grid%u_2((ips+1):MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) =
-     (state_tmp(ips:(MIN(ipe,ide-1)-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) + 
+   head_grid%u_2((ips+1):MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) = &
+     (state_tmp(ips:(MIN(ipe,ide-1)-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) + &
      state_tmp((ips+1):MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)))/2.
-   head_grid%u_2(ips, kps:(kpe-1), jps:MIN(jpe,jde-1)) =
-     state_tmp(ips, kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - 
+   head_grid%u_2(ips, kps:(kpe-1), jps:MIN(jpe,jde-1)) = &
+     state_tmp(ips, kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
      head_grid%u_2((ips+1), kps:(kpe-1), jps:MIN(jpe,jde-1)) 
-   head_grid%u_2(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) =
-     state_tmp(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - 
+   head_grid%u_2(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) = &
+     state_tmp(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
      head_grid%u_2((MIN(ipe,ide-1)-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) 
    if (ide == ipe) head_grid%u_2(ide, kps:(kpe-1), jps:MIN(jpe,jde-1)) = &
      state_tmp((ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
@@ -89,14 +89,14 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
    state_tmp =  &
      reshape(state_p(1:cnt1), &
      [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])          
-   head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), (jps+1):MIN(jpe,jde-1)) =
-     (state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-1), jps:(MIN(jpe,jde-1)-1)) + 
+   head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), (jps+1):MIN(jpe,jde-1)) = &
+     (state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-1), jps:(MIN(jpe,jde-1)-1)) + &
      state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-1), (jps+1):MIN(jpe,jde-1)))/2.
-   head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), jps) =
-     state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-1), jps) * 2 - 
+   head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), jps) = &
+     state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-1), jps) * 2 - &
      head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), (jps+1)) 
-   head_grid%v_2(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) =
-     state_tmp(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - 
+   head_grid%v_2(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) = &
+     state_tmp(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
      head_grid%v_2(MIN(ipe,ide-1), kps:(kpe-1), jps:(MIN(jpe,jde-1)-1)) 
    if (jde == jpe) head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), jpe) = &
      state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-1), (jpe-1)) * 2 - &
@@ -106,28 +106,28 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
    state_tmp =  &
      reshape(state_p(1:cnt1), &
      [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])          
-   head_grid%w_2(ips:MIN(ipe,ide-1), (kps+1):(kpe-1), jps:MIN(jpe,jde-1)) =
-     (state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-2), jps:MIN(jpe,jde-1)) + 
+   head_grid%w_2(ips:MIN(ipe,ide-1), (kps+1):(kpe-1), jps:MIN(jpe,jde-1)) = &
+     (state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-2), jps:MIN(jpe,jde-1)) + &
      state_tmp(ips:MIN(ipe,ide-1), (kps+1):(kpe-1), jps:MIN(jpe,jde-1)))/2.
-   head_grid%w_2(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) =
-     state_tmp(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) * 2 - 
+   head_grid%w_2(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) = &
+     state_tmp(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) * 2 - &
      head_grid%w_2(ips:MIN(ipe,ide-1), (kps+1), jps:MIN(jpe,jde-1)) 
-   head_grid%w_2(ips:MIN(ipe,ide-1), kpe, jps:MIN(jpe,jde-1)) =
-     state_tmp(ips:MIN(ipe,ide-1), (kpe-1), jps:MIN(jpe,jde-1)) * 2 - 
+   head_grid%w_2(ips:MIN(ipe,ide-1), kpe, jps:MIN(jpe,jde-1)) = &
+     state_tmp(ips:MIN(ipe,ide-1), (kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
      head_grid%w_2(ips:MIN(ipe,ide-1), (kpe-1), jps:MIN(jpe,jde-1)) 
 	    
    state_tmp = 0.0     
    state_tmp =  &
      reshape(state_p(1:cnt1), &
      [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])          
-   head_grid%ph_2(ips:MIN(ipe,ide-1), (kps+1):(kpe-1), jps:MIN(jpe,jde-1)) =
-     (state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-2), jps:MIN(jpe,jde-1)) + 
+   head_grid%ph_2(ips:MIN(ipe,ide-1), (kps+1):(kpe-1), jps:MIN(jpe,jde-1)) = &
+     (state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-2), jps:MIN(jpe,jde-1)) + &
      state_tmp(ips:MIN(ipe,ide-1), (kps+1):(kpe-1), jps:MIN(jpe,jde-1)))/2.
-   head_grid%ph_2(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) =
-     state_tmp(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) * 2 - 
+   head_grid%ph_2(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) = &
+     state_tmp(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) * 2 - &
      head_grid%ph_2(ips:MIN(ipe,ide-1), (kps+1), jps:MIN(jpe,jde-1)) 
-   head_grid%ph_2(ips:MIN(ipe,ide-1), kpe, jps:MIN(jpe,jde-1)) =
-     state_tmp(ips:MIN(ipe,ide-1), (kpe-1), jps:MIN(jpe,jde-1)) * 2 - 
+   head_grid%ph_2(ips:MIN(ipe,ide-1), kpe, jps:MIN(jpe,jde-1)) = &
+     state_tmp(ips:MIN(ipe,ide-1), (kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
      head_grid%ph_2(ips:MIN(ipe,ide-1), (kpe-1), jps:MIN(jpe,jde-1)) 	 
 	 
    head_grid%t_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) =  &

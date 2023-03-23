@@ -58,7 +58,10 @@ SUBROUTINE collect_state_pdaf(dim_p, state_p)
                              ips, ipe, jps, jpe, kps, kpe   ) 
                          
    cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) !T 
-   cnt1=cnt2=cnt3=cnt4=cnt5
+   cnt1=cnt5
+   cnt2=cnt5
+   cnt3=cnt5
+   cnt4=cnt5
    
    state_p(1:cnt1) = &
    reshape((head_grid%u_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) + &
