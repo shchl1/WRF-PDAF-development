@@ -60,7 +60,10 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
                             ips, ipe, jps, jpe, kps, kpe   ) 
 							
    cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! T
-   cnt1=cnt2=cnt3=cnt4=cnt5
+   cnt1=cnt5
+   cnt2=cnt5
+   cnt3=cnt5
+   cnt4=cnt5
    ! qmoist cnt5 * 4
    dimp = cnt1+cnt2+cnt3+cnt4+cnt5*4   
    if (dimp /= dim_p) write(*,*) 'distribute dimmension of state_p error! ', &
@@ -195,7 +198,7 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
    print *, maxval(head_grid%moist(:,:,:,2)),minval(head_grid%moist(:,:,:,2)),sum(head_grid%moist(:,:,:,2))
    print *, maxval(head_grid%moist(:,:,:,3)),minval(head_grid%moist(:,:,:,3)),sum(head_grid%moist(:,:,:,3))
 ! endif   
-   DEALLOCATE(state_p)
+   DEALLOCATE(state_tmp)
   WRITE (*,*) 'distribute_state_pdaf: DONE!'
 
 END SUBROUTINE distribute_state_pdaf
