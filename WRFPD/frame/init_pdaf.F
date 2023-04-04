@@ -214,8 +214,10 @@ SUBROUTINE init_pdaf()
 
 ! *** Forecast length (time interval between analysis steps) ***
   delt_obs = 60      ! This should be set according to the data availability
-  ntimes = 144        ! times for assim. Added by Changliang Shao on 2022.1228
-  startn = 1        ! times for start assim. Added by Changliang Shao on 2022.1228
+  ! Added by Changliang Shao on 2022.1228
+  ntimes = 144        ! times for assim. 
+  startn = 1        ! times for start assim. 0 for initialization to generate ensemble
+                    ! forecast at least 1 step. assimilation start from 1, no assimilation for 0
 
 ! *** Which observation type to assimilate
   assim_SOUND_T = .true.

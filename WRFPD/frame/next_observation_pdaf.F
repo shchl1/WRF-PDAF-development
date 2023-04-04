@@ -54,10 +54,10 @@ SUBROUTINE next_observation_pdaf(stepnow, nsteps, doexit, time)
 ! *** Set exit flag ***
 ! *********************
 ! Added by Changliang Shao on 2022.1228
-  if (stepnow + delt_obs <= delt_obs * ntimes) then
+  if (stepnow + delt_obs <= delt_obs * (ntimes + startn)) then
      ! *** During the assimilation process ***
      nsteps = delt_obs   ! This assumes a constant time step interval
-	 if(stepnow == 0) nsteps = delt_obs*startn
+	 if(stepnow == 0) nsteps = delt_obs * startn
      doexit = 0          ! Not used in this implementation
      IF (mype_world == 0) THEN
          write (*, *) &

@@ -22,7 +22,7 @@
 SUBROUTINE g2l_state_pdaf(step, domain_p, dim_p, state_p, dim_l, state_l)
 
   USE mod_assimilation, &
-       ONLY: id_lstate_in_pstate
+       ONLY: id_lstate_in_pstate, n_fields
 
   IMPLICIT NONE
 
@@ -47,7 +47,7 @@ SUBROUTINE g2l_state_pdaf(step, domain_p, dim_p, state_p, dim_l, state_l)
   ! ALLOCATE(id_lstate_in_pstate(dim_l+4)) ! SCHEME 1
   ! Generic initialization using ID_LSTATE_IN_PSTATE set in INIT_DIM_L_PDAF
   ! l = 1
-  ! DO n = 1, dim_l
+  ! DO n = 1, n_fields
     ! SELECT CASE (n)
         ! CASE (1)
           ! state_l(n) = (state_p(id_lstate_in_pstate(l)) + &

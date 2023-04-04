@@ -27,7 +27,7 @@ MODULE mod_parallel_pdaf
   INTEGER :: COMM_model  !< MPI communicator for model tasks
   INTEGER :: mype_model  !< Number of PEs in COMM_model
   INTEGER :: npes_model  !< PE rank in COMM_model
-  INTEGER :: MPI_COMM_MODEL, dim_ens, screen  !< added by Shao
+  INTEGER :: MPI_COMM_MODEL  !< added by Shao
 
   ! Additional variables for use with PDAF
   INTEGER :: n_modeltasks = 40         !< Number of parallel model tasks

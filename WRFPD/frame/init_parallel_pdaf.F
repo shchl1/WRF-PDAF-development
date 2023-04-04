@@ -94,7 +94,7 @@ SUBROUTINE init_parallel_pdaf(dim_ens, screen)
 ! *** Initial Screen output ***
 ! *** This is optional      ***
 
-  IF (mype_world == 0) call init_pdaf_info()
+  ! IF (mype_world == 0) call init_pdaf_info()
 
   ! *** Initialize MPI if not yet initialized ***
   CALL MPI_Initialized(iniflag, MPIerr)

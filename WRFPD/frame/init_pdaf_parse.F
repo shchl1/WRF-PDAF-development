@@ -22,6 +22,8 @@ SUBROUTINE init_pdaf_parse()
        forget, epsilon, rank_analysis_enkf, locweight, local_range, &
        srange, int_rediag, filename, type_trans, &
        type_sqrt, twin_experiment, startn, ntimes
+  USE mod_parallel_pdaf, &
+       ONLY: n_modeltasks
   USE obs_SOUND_U_pdafomi, &  ! Variables for observation type SOUND_U
        ONLY: assim_SOUND_U, rms_obs_SOUND_U
   USE obs_SOUND_V_pdafomi, &  ! Variables for observation type SOUND_v

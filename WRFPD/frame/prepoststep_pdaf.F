@@ -88,9 +88,9 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   integer                   :: k,mm,dimx,dimy,dimz,dimp,     &
                                cnt1,cnt2,cnt3,cnt4,cnt5
   integer,dimension(6) :: m
-  character(len=100) :: out_pathf="..\output\fore.nc'"  
+  character(len=100) :: out_pathf
                         !- 查询目录文件夹状态或使用目录文件夹，允许字符串中存在空格 
-  character(len=100) :: out_patha="..\output\anal.nc'"  
+  character(len=100) :: out_patha
                         !- 查询目录文件夹状态或使用目录文件夹，允许字符串中存在空格 
 
 ! **********************
@@ -102,12 +102,24 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
 !  write (*,*) 'prepoststep_pdaf, state_p(58650), ens_p(58650,2), dim_p= ', &
 !      state_p(58650), ens_p(58650,2), dim_p  
 
+  ! Allocate fields
+  write (*,*) 'dim_state= ', dim_state
+
+  ! Set string for time step
+  IF (step>=0) THEN
+      WRITE (stepstr, '(i2.2)') step
+  ELSE
+      WRITE (stepstr, '(i2.2)') -step
+  END IF
+  out_pathf='../output_fore'//trim(stepstr)//'.nc'  
+  out_patha='../output_anal'//trim(stepstr)//'.nc' 
+  
   IF (mype_filter == 0) THEN
      IF (firsttime) THEN
         WRITE (*, '(8x, a)') 'Analyze initial state ensemble'
         anastr = 'ini'
-        call init_file_syn_obs(dim_state/8, out_pathf, 1) 
-        call init_file_syn_obs(dim_state/8, out_patha, 1)  
+        ! call init_file_syn_obs(dim_state, out_pathf, 1) 
+        ! call init_file_syn_obs(dim_state, out_patha, 1)  
      ELSE
         IF (step<0) THEN
            WRITE (*, '(8x, a)') 'Analyze and write forecasted state ensemble'
