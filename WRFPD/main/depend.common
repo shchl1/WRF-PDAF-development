@@ -89,7 +89,6 @@ module_integrate.o: \
 		../frame/mod_assimilation.o \
 		../frame/collect_state_pdaf.o \
 		../frame/distribute_state_pdaf.o \
-		../frame/prepoststep_pdaf.o \
 		../frame/next_observation_pdaf.o \
 		../frame/init_n_domains_pdaf.o \
 		../frame/init_dim_l_pdaf.o \
@@ -99,6 +98,7 @@ module_integrate.o: \
 		../frame/obs_SOUND_V_pdafomi.o \
 		../frame/obs_SOUND_T_pdafomi.o \
 		../frame/callback_obs_pdafomi.o \
+		../frame/prepoststep_pdaf.o \
 		../frame/assimilate_pdaf.o \
 		../frame/get_obs_f_pdaf.o \
 		../frame/readwrite_obs.o \
@@ -1354,7 +1354,6 @@ module_wrf_top.o: ../frame/module_machine.o \
 				  ../frame/mod_assimilation.o \
 				  ../frame/collect_state_pdaf.o \
 				  ../frame/distribute_state_pdaf.o \
-				  ../frame/prepoststep_pdaf.o \
 				  ../frame/next_observation_pdaf.o \
 				  ../frame/init_n_domains_pdaf.o \
 				  ../frame/init_dim_l_pdaf.o \
@@ -1364,6 +1363,7 @@ module_wrf_top.o: ../frame/module_machine.o \
 				  ../frame/obs_SOUND_V_pdafomi.o \
 				  ../frame/obs_SOUND_T_pdafomi.o \
 				  ../frame/callback_obs_pdafomi.o \
+				  ../frame/prepoststep_pdaf.o \
 				  ../frame/assimilate_pdaf.o \
 				  ../frame/get_obs_f_pdaf.o \
 				  ../frame/readwrite_obs.o \

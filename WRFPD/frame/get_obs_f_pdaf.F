@@ -23,8 +23,12 @@ SUBROUTINE get_obs_f_pdaf(step, dim_obs, observation)
 ! Later revisions - see svn log
 !
 ! !USES:
-  USE obs_SOUND_T_pdafomi, &
-       ONLY: file_syntobs_SOUND_T
+  USE obs_SOUND_U_pdafomi, &      ! Variables for observation SOUND_U
+       ONLY: assim_SOUND_U, file_syntobs_SOUND_U
+  USE obs_SOUND_V_pdafomi, &      ! Variables for observation SOUND_V
+       ONLY: assim_SOUND_V, file_syntobs_SOUND_V
+  USE obs_SOUND_T_pdafomi, &      ! Variables for observation SOUND_T
+       ONLY: assim_SOUND_T, file_syntobs_SOUND_T
   USE mod_assimilation, &         ! Variables for assimilation
        ONLY: filtertype
 
@@ -49,10 +53,17 @@ SUBROUTINE get_obs_f_pdaf(step, dim_obs, observation)
 ! *************************
 ! *** store observation ***
 ! *************************
+! Note: The observation generation should always be performed for a single 
+! observation type at a time. Thus one generates separate observation files 
+! for each observation type.
 
   IF (filtertype == 100) THEN
-    CALL write_syn_obs(step, file_syntobs_SOUND_T, &
-                       dim_obs, observation, 1)
+    IF (assim_SOUND_U) &
+	  CALL write_syn_obs(step, file_syntobs_SOUND_U, dim_obs, observation, 1)
+    IF (assim_SOUND_V) &
+	  CALL write_syn_obs(step, file_syntobs_SOUND_V, dim_obs, observation, 1)
+    IF (assim_SOUND_T) &
+	  CALL write_syn_obs(step, file_syntobs_SOUND_T, dim_obs, observation, 1)
   ENDIF
 
 END SUBROUTINE get_obs_f_pdaf

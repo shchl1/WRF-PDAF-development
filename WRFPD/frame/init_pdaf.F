@@ -29,11 +29,14 @@ SUBROUTINE init_pdaf()
        incremental, covartype, type_forget, forget, filename, &
        rank_analysis_enkf, locweight, local_range, srange, &
        type_trans, type_sqrt, delt_obs, startn, ntimes, &
-       n_fields, off_fields, dim_fields, nam_fields, deg2rad
+       n_fields, off_fields, dim_fields, nam_fields, deg2rad, &
+	   ids, ide, jds, jde, kds, kde,    &
+	   ims, ime, jms, jme, kms, kme,    &
+	   ips, ipe, jps, jpe, kps, kpe
   USE obs_SOUND_U_pdafomi, &      ! Variables for observation SOUND_U
-       ONLY: assim_SOUND_U, rms_obs_SOUND_U
+       ONLY: assim_SOUND_U, rms_obs_SOUND_U, file_syntobs_SOUND_U
   USE obs_SOUND_V_pdafomi, &      ! Variables for observation SOUND_V
-       ONLY: assim_SOUND_V, rms_obs_SOUND_V
+       ONLY: assim_SOUND_V, rms_obs_SOUND_V, file_syntobs_SOUND_V
   USE obs_SOUND_T_pdafomi, &      ! Variables for observation SOUND_T
        ONLY: assim_SOUND_T, rms_obs_SOUND_T, file_syntobs_SOUND_T
 !   USE mod_model, &                ! Model variables
@@ -55,10 +58,7 @@ SUBROUTINE init_pdaf()
   REAL(8) :: lim_coords(2,2)  !< coordinate array (1: longitude, 2: latitude)
                               !< geographic range: longitude (-pi, pi), latitude (-pi/2, pi/2)
                               !< Cartesian range: (x) coordinate grows from left to right; (y) from bottom to top  
-  INTEGER                   :: ids, ide, jds, jde, kds, kde,    &
-                               ims, ime, jms, jme, kms, kme,    &
-                               ips, ipe, jps, jpe, kps, kpe,    &
-                               i,j,k,mm,dimx,dimy,dimz,dimp,    &
+  INTEGER                   :: i,j,k,mm,dimx,dimy,dimz,dimp,    &
                                cnt1,cnt2,cnt3,cnt4,cnt5,ierr
   integer,dimension(6) :: m
 ! *** External subroutines ***
@@ -90,16 +90,25 @@ SUBROUTINE init_pdaf()
   write (*,*) 'ids, ide, jds, jde, kds, kde= ', ids, ide, jds, jde, kds, kde
   write (*,*) 'ims, ime, jms, jme, kms, kme= ', ims, ime, jms, jme, kms, kme
   write (*,*) 'ips, ipe, jps, jpe, kps, kpe= ', ips, ipe, jps, jpe, kps, kpe
-  dim_state = (ide-ids+1)*(kde-kds)*(jde-jds) + & ! U
-              (ide-ids)*(kde-kds)*(jde-jds+1) + & ! V
-              (ide-ids)*(kde-kds+1)*(jde-jds) + & ! W
-              (ide-ids)*(kde-kds+1)*(jde-jds) + & ! PH
-              (ide-ids)*(kde-kds)*(jde-jds)*4     ! T,QV,QC,QR,QI,QS,QG
-  cnt1 = (ipe-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! U
-  cnt2 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (jpe-jps+1) ! V
-  cnt3 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) !W
-  cnt4 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) !PH
+  ! ! scheme 1 grid c
+  ! dim_state = (ide-ids+1)*(kde-kds)*(jde-jds) + & ! U
+              ! (ide-ids)*(kde-kds)*(jde-jds+1) + & ! V
+              ! (ide-ids)*(kde-kds+1)*(jde-jds) + & ! W
+              ! (ide-ids)*(kde-kds+1)*(jde-jds) + & ! PH
+              ! (ide-ids)*(kde-kds)*(jde-jds)*4     ! T,QV,QC,QR,QI,QS,QG
+  ! cnt1 = (ipe-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! U
+  ! cnt2 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (jpe-jps+1) ! V
+  ! cnt3 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) !W
+  ! cnt4 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) !PH
+  ! cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) !T
+  
+  ! scheme 2 grid a
+  dim_state = (ide-ids)*(kde-kds)*(jde-jds)*8     ! U,V,W,PH,T,QV,QC,QR,QI,QS,QG
   cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) !T
+  cnt1 = cnt5 ! U
+  cnt2 = cnt5 ! V
+  cnt3 = cnt5 ! W
+  cnt4 = cnt5 ! PH
   ! cnt5 * 6 'QV','QC','QR','QI','QS','QG'
   n_fields = 8
   allocate(off_fields(n_fields))
@@ -220,14 +229,14 @@ SUBROUTINE init_pdaf()
                     ! forecast at least 1 step. assimilation start from 1, no assimilation for 0
 
 ! *** Which observation type to assimilate
-  assim_SOUND_T = .true.
+  assim_SOUND_T = .false.
   assim_SOUND_U = .false.
   assim_SOUND_V = .false.
 
 ! *** specifications for observations ***
   rms_obs_SOUND_T = 0.1    ! Observation error standard deviation
-  rms_obs_SOUND_U = 0.5    ! Observation error standard deviation
-  rms_obs_SOUND_V = 0.5    ! Observation error standard deviation
+  rms_obs_SOUND_U = 0.1    ! Observation error standard deviation
+  rms_obs_SOUND_V = 0.1    ! Observation error standard deviation
 
 ! *** Localization settings
   locweight = 0     ! Type of localizating weighting # locweight = 2 
@@ -250,6 +259,8 @@ SUBROUTINE init_pdaf()
      WRITE (filestr, '(i2)') mype_filter
   END IF  
   file_syntobs_SOUND_T = '../obsT'//trim(filestr)//'.nc'
+  file_syntobs_SOUND_U = '../obsU'//trim(filestr)//'.nc'
+  file_syntobs_SOUND_V = '../obsV'//trim(filestr)//'.nc'
 
 ! ***********************************
 ! *** Some optional functionality ***
@@ -306,7 +317,9 @@ SUBROUTINE init_pdaf()
 	   
 ! Initialize file for synthetic observations
   IF (filtertype == 100) THEN
-      CALL init_file_syn_obs(dim_fields(5), file_syntobs_SOUND_T, 1)
+      IF (assim_SOUND_U) CALL init_file_syn_obs(dim_fields(1), file_syntobs_SOUND_U, 1)
+      IF (assim_SOUND_V) CALL init_file_syn_obs(dim_fields(2), file_syntobs_SOUND_V, 1)
+      IF (assim_SOUND_T) CALL init_file_syn_obs(dim_fields(5), file_syntobs_SOUND_T, 1)
   END IF
 
 ! ************************************************************************

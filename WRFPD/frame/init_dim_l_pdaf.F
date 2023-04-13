@@ -18,7 +18,10 @@
 SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
 
   USE mod_assimilation, &      ! Variables for assimilation
-       ONLY: coords_l, id_lstate_in_pstate, n_fields, off_fields, deg2rad
+       ONLY: coords_l, id_lstate_in_pstate, n_fields, off_fields, deg2rad, &
+	   ids, ide, jds, jde, kds, kde,    &
+	   ims, ime, jms, jme, kms, kme,    &
+	   ips, ipe, jps, jpe, kps, kpe
   USE module_domain, ONLY : head_grid, get_ijk_from_grid
 
   IMPLICIT NONE
@@ -29,9 +32,6 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
   INTEGER, INTENT(out) :: dim_l    !< Local state dimension
 
 ! *** local variables ***
-  INTEGER                   :: ids, ide, jds, jde, kds, kde,    &
-                               ims, ime, jms, jme, kms, kme,    &
-                               ips, ipe, jps, jpe, kps, kpe
   INTEGER                   :: i,j,k,l,m,n,x,cnt1,cnt2,cnt3,cnt4, &  !< Current time step
                                cnt5, cnti, cntk, cntj
 
@@ -49,12 +49,6 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
 ! **********************************************
 ! *** Initialize coordinates of local domain ***
 ! **********************************************
-
-  ! Global coordinates of local analysis domain
-  call get_ijk_from_grid (  head_grid ,                &
-                            ids, ide, jds, jde, kds, kde,    &
-                            ims, ime, jms, jme, kms, kme,    &
-                            ips, ipe, jps, jpe, kps, kpe   ) 
 							
   ! don't search but calculate i,j,k
   ! n = (i-1)*(maxJ*maxK)+(j-1)*maxK + k
@@ -237,47 +231,47 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
   ! else
   ! id_lstate_in_pstate = off_fields + domain_p - cnt1 - cnt2 - cnt3
 
-  ! ALLOCATE(id_lstate_in_pstate(dim_l)) ! SCHEME 3
-  ! id_lstate_in_pstate = off_fields + domain_p
+  ALLOCATE(id_lstate_in_pstate(dim_l)) ! SCHEME 3 grid a
+  id_lstate_in_pstate = off_fields + domain_p
   ! id_lstate_in_pstate = off_fields(5) + domain_p ! only for T
   
-  ALLOCATE(id_lstate_in_pstate(dim_l)) ! SCHEME 4
+  ! ALLOCATE(id_lstate_in_pstate(dim_l)) ! SCHEME 4 grid c
 
-  cnti = MIN(ipe,ide-1)-ips+1
-  cntk = cnti*(kpe-kps)
-  cntj = cntk*(MIN(jpe,jde-1)-jps+1)
-  l = 1  
-  DO n = 1, n_fields
-    SELECT CASE (n)
-        CASE (1)
-		  ! i,k,j to state
-          cnt1 = ipe-ips+1
-          cnt2 = cnt1 * (kpe-kps)
-		  cnt3 = cnt2 * (MIN(jpe,jde-1)-jps+1)
-		  id_lstate_in_pstate(l) = (j-jps)*cnt2 + (k-kps)*cnt1 + (i-ips+1) + off_fields(n)
-          l = l+1
-		  ! id_lstate_in_pstate(l) = id_lstate_in_pstate(l-1) + 1
-          ! l = l+1 
-        CASE (2)
-          cnt1 = MIN(ipe,ide-1)-ips+1
-          cnt2 = cnt1 * (kpe-kps)
-		  cnt3 = cnt2 * (jpe-jps+1)
-		  id_lstate_in_pstate(l) = (j-jps)*cnt2 + (k-kps)*cnt1 + (i-ips+1) + off_fields(n)
-          l = l+1
-		  ! id_lstate_in_pstate(l) = id_lstate_in_pstate(l-1) + cnt2 * 1
-          ! l = l+1 
-        CASE (3, 4)
-          cnt1 = MIN(ipe,ide-1)-ips+1
-          cnt2 = cnt1 * (kpe-kps+1)
-		  cnt3 = cnt2 * (MIN(jpe,jde-1)-jps+1)
-		  id_lstate_in_pstate(l) = (j-jps)*cnt2 + (k-kps)*cnt1 + (i-ips+1) + off_fields(n)
-          l = l+1
-		  ! id_lstate_in_pstate(l) = id_lstate_in_pstate(l-1) + cnt1 * 1
-          ! l = l+1 
-        CASE DEFAULT
-          id_lstate_in_pstate(l) = domain_p + off_fields(n)
-          l = l+1
-    END SELECT
-  ENDDO
+  ! cnti = MIN(ipe,ide-1)-ips+1
+  ! cntk = cnti*(kpe-kps)
+  ! cntj = cntk*(MIN(jpe,jde-1)-jps+1)
+  ! l = 1  
+  ! DO n = 1, n_fields
+    ! SELECT CASE (n)
+        ! CASE (1)
+		  ! ! i,k,j to state
+          ! cnt1 = ipe-ips+1
+          ! cnt2 = cnt1 * (kpe-kps)
+		  ! cnt3 = cnt2 * (MIN(jpe,jde-1)-jps+1)
+		  ! id_lstate_in_pstate(l) = (j-jps)*cnt2 + (k-kps)*cnt1 + (i-ips+1) + off_fields(n)
+          ! l = l+1
+		  ! ! id_lstate_in_pstate(l) = id_lstate_in_pstate(l-1) + 1
+          ! ! l = l+1 
+        ! CASE (2)
+          ! cnt1 = MIN(ipe,ide-1)-ips+1
+          ! cnt2 = cnt1 * (kpe-kps)
+		  ! cnt3 = cnt2 * (jpe-jps+1)
+		  ! id_lstate_in_pstate(l) = (j-jps)*cnt2 + (k-kps)*cnt1 + (i-ips+1) + off_fields(n)
+          ! l = l+1
+		  ! ! id_lstate_in_pstate(l) = id_lstate_in_pstate(l-1) + cnt2 * 1
+          ! ! l = l+1 
+        ! CASE (3, 4)
+          ! cnt1 = MIN(ipe,ide-1)-ips+1
+          ! cnt2 = cnt1 * (kpe-kps+1)
+		  ! cnt3 = cnt2 * (MIN(jpe,jde-1)-jps+1)
+		  ! id_lstate_in_pstate(l) = (j-jps)*cnt2 + (k-kps)*cnt1 + (i-ips+1) + off_fields(n)
+          ! l = l+1
+		  ! ! id_lstate_in_pstate(l) = id_lstate_in_pstate(l-1) + cnt1 * 1
+          ! ! l = l+1 
+        ! CASE DEFAULT
+          ! id_lstate_in_pstate(l) = domain_p + off_fields(n)
+          ! l = l+1
+    ! END SELECT
+  ! ENDDO
   
 END SUBROUTINE init_dim_l_pdaf

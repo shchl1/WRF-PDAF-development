@@ -152,11 +152,11 @@ SUBROUTINE init_dim_obs_l_pdafomi(domain_p, step, dim_obs, dim_obs_l)
 ! *** Initialize local observation dimension ***
 ! **********************************************
 
-  IF (domain_p==10 .AND. mype_filter==0) THEN
-    CALL PDAFomi_set_debug_flag(domain_p)
-  ELSE
-    CALL PDAFomi_set_debug_flag(0)
-  ENDIF
+  ! IF (domain_p==10 .AND. mype_filter==0) THEN
+    ! CALL PDAFomi_set_debug_flag(domain_p)
+  ! ELSE
+    ! CALL PDAFomi_set_debug_flag(0)
+  ! ENDIF
   ! Call init_dim_obs_l specific for each observation
   IF (assim_SOUND_U) CALL init_dim_obs_l_SOUND_U(domain_p, step, dim_obs, dim_obs_l)
   IF (assim_SOUND_V) CALL init_dim_obs_l_SOUND_V(domain_p, step, dim_obs, dim_obs_l)

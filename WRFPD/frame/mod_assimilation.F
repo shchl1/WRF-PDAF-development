@@ -190,6 +190,10 @@ MODULE mod_assimilation
   INTEGER, ALLOCATABLE :: off_fields(:) !< Offsets of fields in state vector
   INTEGER, ALLOCATABLE :: dim_fields(:) !< Dimension of fields in state vector
   CHARACTER(len=2), ALLOCATABLE :: nam_fields(:) !< Offsets of fields in state vector
+  
+  INTEGER :: ids, ide, jds, jde, kds, kde,    &
+             ims, ime, jms, jme, kms, kme,    & 
+			 ips, ipe, jps, jpe, kps, kpe
 
   ! Declare Fortran type holding the indices of model fields in the state vector
   ! This can be extended to any number of fields - it severs to give each field a name

@@ -35,9 +35,13 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   USE mod_parallel_pdaf, &     ! Parallelization
        ONLY: mype_filter, npes_filter, COMM_filter, MPIerr, MPIstatus
   USE mod_assimilation, &      ! Assimilation variables
-       ONLY: dim_state, n_fields, dim_fields, off_fields, nam_fields
+       ONLY: dim_state, n_fields, dim_fields, off_fields, nam_fields, &
+	   startn, filtertype
   ! added by Changliang Shao on 2022.1228
   USE module_domain, ONLY : head_grid, get_ijk_from_grid 
+  USE obs_SOUND_T_pdafomi, ONLY : assim_SOUND_T, file_syntobs_SOUND_T
+  USE obs_SOUND_U_pdafomi, ONLY : assim_SOUND_U, file_syntobs_SOUND_U
+  USE obs_SOUND_V_pdafomi, ONLY : assim_SOUND_V, file_syntobs_SOUND_V
 
   IMPLICIT NONE
 
@@ -61,12 +65,13 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   LOGICAL, SAVE :: firsttime = .TRUE. ! Routine is called for first time?
   REAL(8) :: invdim_ens                  ! Inverse ensemble size
   REAL(8) :: invdim_ensm1                ! Inverse of ensemble size minus 1
-  REAL(8) :: rmserror                    ! estimated RMS error
   REAL(8), ALLOCATABLE :: statmean_est(:)! estimated RMS error
+  REAL(8), ALLOCATABLE :: spread_est(:)  ! estimated RMS error
   REAL(8), ALLOCATABLE :: rmserror_est(:)! estimated RMS error
-  REAL(8) :: statmean_tmp, rmserror_tmp  ! estimated RMS error
+  REAL(8) :: statmean_tmp, rmserror_tmp, spread_tmp  ! estimated RMS error
   REAL(8), ALLOCATABLE :: statmean_p(:)  ! estimated mean
   REAL(8), ALLOCATABLE :: rmserror_p(:)  ! estimated RMS error
+  REAL(8), ALLOCATABLE :: spread_p(:)  ! estimated spread
   REAL(8), ALLOCATABLE :: variance_p(:)  ! model state variances
   REAL(8), ALLOCATABLE :: field(:,:,:)   ! global model field
   CHARACTER(len=2) :: ensstr          ! String for ensemble member
@@ -79,12 +84,9 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   REAL(8), ALLOCATABLE :: state(:)       ! global state vector
   REAL(8),ALLOCATABLE :: ens_p_tmp(:,:)  ! Temporary ensemble for some PE-domain
   REAL(8),ALLOCATABLE :: state_p_tmp(:)  ! Temporary state for some PE-domain  
+  REAL(8),ALLOCATABLE :: obs_t(:),obs_u(:),obs_v(:),obs_tmp(:)    !< PE-local observation
   INTEGER,ALLOCATABLE :: local_dims(:)   ! PE(/=0)-local state dimension
-  INTEGER             :: dimtmp, ierr, dim_fields_p
-  INTEGER                   :: ids, ide, jds, jde, kds, kde,    &
-                               ims, ime, jms, jme, kms, kme,    &
-                               ips, ipe, jps, jpe, kps, kpe,    &
-                               its, ite, jts, jte, kts, kte
+  INTEGER             :: dimtmp, ierr, dim_fields_tmp
   integer                   :: k,mm,dimx,dimy,dimz,dimp,     &
                                cnt1,cnt2,cnt3,cnt4,cnt5
   integer,dimension(6) :: m
@@ -92,6 +94,7 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
                         !- 查询目录文件夹状态或使用目录文件夹，允许字符串中存在空格 
   character(len=100) :: out_patha
                         !- 查询目录文件夹状态或使用目录文件夹，允许字符串中存在空格 
+  external :: read_syn_obs_prepost
 
 ! **********************
 ! *** INITIALIZATION ***
@@ -132,98 +135,163 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
         END IF
      END IF
   END IF
-! !if(0==1) then  
-  ! ALLOCATE(variance_p(dim_p))
-  ! ALLOCATE(statmean_p(n_fields))  
-  ! ALLOCATE(statmean_est(n_fields))  
-  ! ALLOCATE(rmserror_p(n_fields))
-  ! ALLOCATE(rmserror_est(n_fields))
-  ! ! Initialize numbers
-  ! statmean_est  = 0.0
-  ! rmserror_est  = 0.0
-  ! invdim_ens    = 1.0 / REAL(dim_ens)  
-  ! invdim_ensm1  = 1.0 / REAL(dim_ens - 1)
-
-
-! ! **************************************************************
-! ! *** Perform prepoststep for SEIK with re-inititialization. ***
-! ! *** The state and error information is completely in the   ***
-! ! *** ensemble.                                              ***
-! ! *** Also performed for SEIK without re-init at the initial ***
-! ! *** time.                                                  ***
-! ! **************************************************************
-
-  ! ! *** Compute mean state
-  ! IF (mype_filter == 0) WRITE (*, '(8x, a)') '--- compute ensemble mean'
-! !if (0==1) then
-  ! state_p = 0.0
-  ! DO member = 1, dim_ens
-     ! state_p(:) = state_p(:) + ens_p(:, member)
-  ! END DO
-  ! state_p(:) = invdim_ens * state_p(:)
-! !endif
-  ! ! *** Compute sampled variances ***
-  ! variance_p = 0.0
-  ! DO member = 1, dim_ens
-     ! variance_p(:) = variance_p(:) + (ens_p(:, member) - state_p(:)) &
-                     ! * (ens_p(:, member) - state_p(:))
-  ! END DO
-  ! IF (dim_ens > 1) then
-     ! variance_p(:) = invdim_ensm1 * variance_p(:)
-  ! ELSE
-     ! variance_p(:) = invdim_ens * variance_p(:)
-  ! ENDIF
-
-! ! ******************************************************
-! ! *** Assemble global variance vector on filter PE 0 ***
-! ! ******************************************************
-
-! ! ************************************************************
-! ! *** Compute RMS errors according to sampled covar matrix ***
-! ! ************************************************************
-
-  ! ! Total estimated RMS error
-  ! ! This example is univariate - one should distinguish different fields
-  ! DO i = 1, n_fields
-      ! statmean_p(i) = SUM(state_p((1+off_fields(i)):(dim_fields(i)+off_fields(i))))
-      ! rmserror_p(i) = SUM(variance_p((1+off_fields(i)):(dim_fields(i)+off_fields(i))))
-	  ! statmean_tmp = 0.0
-	  ! rmserror_tmp = 0.0
-	  ! dim_fields_p = 0
-      ! call MPI_ALLreduce(statmean_p(i), statmean_tmp, 1, &
-	  ! MPI_REAL8, MPI_SUM, COMM_filter, MPIerr)
-      ! call MPI_ALLreduce(rmserror_p(i), rmserror_tmp, 1, &
-	  ! MPI_REAL8, MPI_SUM, COMM_filter, MPIerr)
-      ! call MPI_ALLreduce(dim_fields(i), dim_fields_p, 1, &
-	  ! MPI_INTEGER, MPI_SUM, COMM_filter, MPIerr)
-      ! statmean_est(i) = statmean_tmp/REAL(dim_fields_p,8)
-      ! rmserror_est(i) = SQRT(rmserror_tmp/REAL(dim_fields_p,8))
-  ! ENDDO 
   
-! ! *****************
-! ! *** Screen IO ***
-! ! *****************
+! !if(0==1) then  
+  ALLOCATE(variance_p(dim_p))
+  ALLOCATE(statmean_p(n_fields))  
+  ALLOCATE(statmean_est(n_fields))  
+  ALLOCATE(spread_p(n_fields))
+  ALLOCATE(spread_est(n_fields)) 
+  ALLOCATE(rmserror_p(n_fields))
+  ALLOCATE(rmserror_est(n_fields))
+  ALLOCATE(obs_t(dim_fields(5)))
+  ALLOCATE(obs_u(dim_fields(1)))
+  ALLOCATE(obs_v(dim_fields(2)))
+  
+  ! Initialize numbers
+  variance_p = 0.0
+  statmean_p  = 0.0
+  rmserror_p  = 0.0
+  spread_p = 0.0
+  statmean_est  = 0.0
+  rmserror_est  = 0.0
+  spread_est = 0.0
+  obs_t = 0.0
+  obs_u = 0.0
+  obs_v = 0.0
+  invdim_ens    = 1.0 / REAL(dim_ens)  
+  IF (dim_ens > 1) THEN
+    invdim_ensm1  = 1.0 / REAL(dim_ens - 1)
+  ELSE
+    invdim_ensm1  = invdim_ens
+  ENDIF
+  
+  IF (filtertype /= 100) THEN 
+    CALL read_syn_obs_prepost(file_syntobs_SOUND_U, &
+	                dim_fields(1), obs_u, abs(step), 1-mype_filter)
+    CALL read_syn_obs_prepost(file_syntobs_SOUND_V, &
+	                dim_fields(2), obs_v, abs(step), 1-mype_filter)
+    CALL read_syn_obs_prepost(file_syntobs_SOUND_T, &
+	                dim_fields(5), obs_t, abs(step), 1-mype_filter)
+  ENDIF
+  
+  print*, 'sum(obs_t)/size(obs_t)= ', sum(obs_t)/size(obs_t)
+  print*, 'sum(obs_u)/size(obs_u)= ', sum(obs_u)/size(obs_u)
+  print*, 'sum(obs_v)/size(obs_v)= ', sum(obs_v)/size(obs_v)
 
-  ! ! Output RMS errors given by sampled covar matrix
-  ! IF (mype_filter == 0) THEN
-     ! write (*, '(a,6x,a)') 'WRF-PDAF', 'SPREAD or RMS errors according to sample variance'
-     ! do i = 1, n_fields
-	    ! write (*,'(a,4x,a10,4x,a2,2x,es12.4)') &
-              ! 'WRF-PDAF', 'SPREAD-'//anastr, trim(nam_fields(i)), rmserror_est(i)
-     ! end do
-     ! write (*, '(a,6x,a)') 'WRF-PDAF', 'MEAN according to sample variance'
-     ! do i = 1, n_fields
-	    ! write (*,'(a,4x,a10,4x,a2,2x,es12.4)') &
-              ! 'WRF-PDAF', 'MEAN-'//anastr, trim(nam_fields(i)), statmean_est(i)
-     ! end do
-  ! END IF
 
-  ! ! DEALLOCATE(variance)
-  ! DEALLOCATE(statmean_p)
-  ! DEALLOCATE(statmean_est)
-  ! DEALLOCATE(variance_p)
-  ! DEALLOCATE(rmserror_p)
-  ! DEALLOCATE(rmserror_est)
+! **************************************************************
+! *** Perform prepoststep for SEIK with re-inititialization. ***
+! *** The state and error information is completely in the   ***
+! *** ensemble.                                              ***
+! *** Also performed for SEIK without re-init at the initial ***
+! *** time.                                                  ***
+! **************************************************************
+
+  ! *** Compute mean state
+  IF (mype_filter == 0) WRITE (*, '(8x, a)') '--- compute ensemble mean'
+!if (0==1) then
+  state_p = 0.0
+  DO member = 1, dim_ens
+     state_p(:) = state_p(:) + ens_p(:, member)
+  END DO
+  state_p(:) = invdim_ens * state_p(:)
+!endif
+  ! *** Compute sampled variances ***
+  DO member = 1, dim_ens
+     variance_p(:) = variance_p(:) + (ens_p(:, member) - state_p(:)) &
+                     * (ens_p(:, member) - state_p(:))
+  END DO
+  IF (dim_ens > 1) then
+     variance_p(:) = invdim_ensm1 * variance_p(:)
+  ELSE
+     variance_p(:) = invdim_ens * variance_p(:)
+  ENDIF
+
+! ******************************************************
+! *** Assemble global variance vector on filter PE 0 ***
+! ******************************************************
+
+! ************************************************************
+! *** Compute RMS errors according to sampled covar matrix ***
+! ************************************************************
+
+  ! Total estimated RMS error
+  ! This example is univariate - one should distinguish different fields
+  DO i = 1, n_fields
+      statmean_p(i) = SUM(state_p((1+off_fields(i)):(dim_fields(i)+off_fields(i))))
+      spread_p(i) = SUM(variance_p((1+off_fields(i)):(dim_fields(i)+off_fields(i))))	  
+	  statmean_tmp = 0.0
+	  spread_tmp = 0.0
+	  dim_fields_tmp = 0
+      call MPI_ALLreduce(statmean_p(i), statmean_tmp, 1, &
+	  MPI_REAL8, MPI_SUM, COMM_filter, MPIerr)
+      call MPI_ALLreduce(spread_p(i), spread_tmp, 1, &
+	  MPI_REAL8, MPI_SUM, COMM_filter, MPIerr)
+      call MPI_ALLreduce(dim_fields(i), dim_fields_tmp, 1, &
+	  MPI_INTEGER, MPI_SUM, COMM_filter, MPIerr)
+      statmean_est(i) = statmean_tmp/REAL(dim_fields_tmp,8)
+      spread_est(i) = SQRT(spread_tmp/REAL(dim_fields_tmp,8))
+	  if (i == 5) then
+	    rmserror_tmp = 0.0
+        rmserror_p(i) = SUM((state_p((1+off_fields(5)):(dim_fields(5)+off_fields(5))) &
+		- obs_t(1:dim_fields(5))) ** 2)
+        call MPI_ALLreduce(rmserror_p(i), rmserror_tmp, 1, &
+		MPI_REAL8, MPI_SUM, COMM_filter, MPIerr)
+		rmserror_est(i) = SQRT(rmserror_tmp/REAL(dim_fields_tmp,8))
+	  endif
+	  if (i == 1) then
+	    rmserror_tmp = 0.0
+        rmserror_p(i) = SUM((state_p((1+off_fields(1)):(dim_fields(1)+off_fields(1))) &
+		- obs_u(1:dim_fields(1))) ** 2)
+        call MPI_ALLreduce(rmserror_p(i), rmserror_tmp, 1, &
+		MPI_REAL8, MPI_SUM, COMM_filter, MPIerr)
+		rmserror_est(i) = SQRT(rmserror_tmp/REAL(dim_fields_tmp,8))
+	  endif
+	  if (i == 2) then
+	    rmserror_tmp = 0.0
+        rmserror_p(i) = SUM((state_p((1+off_fields(2)):(dim_fields(2)+off_fields(2))) &
+		- obs_v(1:dim_fields(2))) ** 2)
+        call MPI_ALLreduce(rmserror_p(i), rmserror_tmp, 1, &
+		MPI_REAL8, MPI_SUM, COMM_filter, MPIerr)
+		rmserror_est(i) = SQRT(rmserror_tmp/REAL(dim_fields_tmp,8))
+	  endif
+  ENDDO 
+    
+! *****************
+! *** Screen IO ***
+! *****************
+
+  ! Output RMS errors given by sampled covar matrix
+  IF (mype_filter == 0) THEN
+     write (*, '(a,6x,a)') 'WRF-PDAF', 'MEAN according to sample variance'
+     do i = 1, n_fields
+	    write (*,'(a,4x,a10,4x,a2,2x,es12.4)') &
+              'WRF-PDAF', 'MEAN-'//anastr, trim(nam_fields(i)), statmean_est(i)
+     end do
+     write (*, '(a,6x,a)') 'WRF-PDAF', 'RMSE according to sample variance'
+     do i = 1, n_fields
+	    write (*,'(a,4x,a10,4x,a2,2x,es12.4)') &
+              'WRF-PDAF', 'RMSE-'//anastr, trim(nam_fields(i)), rmserror_est(i)
+     end do
+     write (*, '(a,6x,a)') 'WRF-PDAF', 'SPREAD according to sample variance'
+     do i = 1, n_fields
+	    write (*,'(a,4x,a10,4x,a2,2x,es12.4)') &
+              'WRF-PDAF', 'SPREAD-'//anastr, trim(nam_fields(i)), spread_est(i)
+     end do
+  END IF
+  
+  ! DEALLOCATE(variance)
+  DEALLOCATE(variance_p)
+  DEALLOCATE(statmean_p)  
+  DEALLOCATE(statmean_est)  
+  DEALLOCATE(spread_p)
+  DEALLOCATE(spread_est) 
+  DEALLOCATE(rmserror_p)
+  DEALLOCATE(rmserror_est)
+  DEALLOCATE(obs_t)
+  DEALLOCATE(obs_u)
+  DEALLOCATE(obs_v)
   
 ! *******************
 ! *** File output ***

@@ -25,7 +25,11 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
 
 
 ! added by Changliang Shao on 2022.1228
-  USE module_domain, ONLY : head_grid, get_ijk_from_grid
+  USE module_domain, ONLY : head_grid
+  USE mod_assimilation, &         ! Variables for assimilation
+       ONLY: ids, ide, jds, jde, kds, kde,    &
+	   ims, ime, jms, jme, kms, kme,    &
+	   ips, ipe, jps, jpe, kps, kpe
   
   IMPLICIT NONE
   
@@ -36,13 +40,10 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
 ! *** local variables ***
 
 ! added by Changliang Shao on 2022.1228
-  INTEGER                   :: ids, ide, jds, jde, kds, kde,    &
-                               ims, ime, jms, jme, kms, kme,    &
-                               ips, ipe, jps, jpe, kps, kpe
   integer                   :: i,j,k,l,mm,dimx,dimy,dimz,dimp,     &
                                cnt1,cnt2,cnt3,cnt4,cnt5
   integer,dimension(6) :: m
-  REAL(8), ALLOCATABLE :: state_tmp(:,:,:)  ! temp state
+  REAL(8), ALLOCATABLE :: state_tmp(:,:,:),state_tmp1(:,:,:)  ! temp state
 
 ! *************************************************
 ! *** Initialize model fields from state vector ***
@@ -52,135 +53,67 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
   ! Template reminder - delete when implementing functionality
   WRITE (*,*) 'distribute_state_pdaf: initialization of model fields here!'
   
-  data m /1,2,3,4,7,8/  !'QV','QC','QR','QI','QS','QG'
-  
-  call get_ijk_from_grid (  head_grid ,                &
-                            ids, ide, jds, jde, kds, kde,    &
-                            ims, ime, jms, jme, kms, kme,    &
-                            ips, ipe, jps, jpe, kps, kpe   ) 
+  data m /1,2,3,4,7,8/  !'QV','QC','QR','QI','QS','QG'  
 				
-   ! ! scheme 2   			
-   ! cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! T
-   ! cnt1=cnt5
-   ! cnt2=cnt5
-   ! cnt3=cnt5
-   ! cnt4=cnt5
-   ! ! qmoist cnt5 * 4
-   ! dimp = cnt1+cnt2+cnt3+cnt4+cnt5*4   
-   ! if (dimp /= dim_p) write(*,*) 'distribute dimmension of state_p error! ', &
-               ! 'required ', dim_p, 'actually ', dimp
-			      
-   ! ALLOCATE(state_tmp(MIN(ipe,ide-1)-ips+1, kpe-kps, MIN(jpe,jde-1)-jps+1))
-   
-   ! state_tmp = 0.0     
-   ! state_tmp =  &
-     ! reshape(state_p(1:cnt1), &
-     ! [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])          
-   ! head_grid%u_2((ips+1):MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) = &
-     ! (state_tmp(ips:(MIN(ipe,ide-1)-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) + &
-     ! state_tmp((ips+1):MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)))/2.
-   ! head_grid%u_2(ips, kps:(kpe-1), jps:MIN(jpe,jde-1)) = &
-     ! state_tmp(ips, kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
-     ! head_grid%u_2((ips+1), kps:(kpe-1), jps:MIN(jpe,jde-1)) 
-   ! head_grid%u_2(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) = &
-     ! state_tmp(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
-     ! head_grid%u_2((MIN(ipe,ide-1)-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) 
-   ! if (ide == ipe) head_grid%u_2(ide, kps:(kpe-1), jps:MIN(jpe,jde-1)) = &
-     ! state_tmp((ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
-     ! head_grid%u_2((ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) 
-   
-   ! state_tmp = 0.0     
-   ! state_tmp =  &
-     ! reshape(state_p(1:cnt1), &
-     ! [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])          
-   ! head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), (jps+1):MIN(jpe,jde-1)) = &
-     ! (state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-1), jps:(MIN(jpe,jde-1)-1)) + &
-     ! state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-1), (jps+1):MIN(jpe,jde-1)))/2.
-   ! head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), jps) = &
-     ! state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-1), jps) * 2 - &
-     ! head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), (jps+1)) 
-   ! head_grid%v_2(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) = &
-     ! state_tmp(MIN(ipe,ide-1), kps:(kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
-     ! head_grid%v_2(MIN(ipe,ide-1), kps:(kpe-1), jps:(MIN(jpe,jde-1)-1)) 
-   ! if (jde == jpe) head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), jpe) = &
-     ! state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-1), (jpe-1)) * 2 - &
-     ! head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), (jpe-1)) 
-	    
-   ! state_tmp = 0.0     
-   ! state_tmp =  &
-     ! reshape(state_p(1:cnt1), &
-     ! [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])          
-   ! head_grid%w_2(ips:MIN(ipe,ide-1), (kps+1):(kpe-1), jps:MIN(jpe,jde-1)) = &
-     ! (state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-2), jps:MIN(jpe,jde-1)) + &
-     ! state_tmp(ips:MIN(ipe,ide-1), (kps+1):(kpe-1), jps:MIN(jpe,jde-1)))/2.
-   ! head_grid%w_2(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) = &
-     ! state_tmp(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) * 2 - &
-     ! head_grid%w_2(ips:MIN(ipe,ide-1), (kps+1), jps:MIN(jpe,jde-1)) 
-   ! head_grid%w_2(ips:MIN(ipe,ide-1), kpe, jps:MIN(jpe,jde-1)) = &
-     ! state_tmp(ips:MIN(ipe,ide-1), (kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
-     ! head_grid%w_2(ips:MIN(ipe,ide-1), (kpe-1), jps:MIN(jpe,jde-1)) 
-	    
-   ! state_tmp = 0.0     
-   ! state_tmp =  &
-     ! reshape(state_p(1:cnt1), &
-     ! [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])          
-   ! head_grid%ph_2(ips:MIN(ipe,ide-1), (kps+1):(kpe-1), jps:MIN(jpe,jde-1)) = &
-     ! (state_tmp(ips:MIN(ipe,ide-1), kps:(kpe-2), jps:MIN(jpe,jde-1)) + &
-     ! state_tmp(ips:MIN(ipe,ide-1), (kps+1):(kpe-1), jps:MIN(jpe,jde-1)))/2.
-   ! head_grid%ph_2(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) = &
-     ! state_tmp(ips:MIN(ipe,ide-1), kps, jps:MIN(jpe,jde-1)) * 2 - &
-     ! head_grid%ph_2(ips:MIN(ipe,ide-1), (kps+1), jps:MIN(jpe,jde-1)) 
-   ! head_grid%ph_2(ips:MIN(ipe,ide-1), kpe, jps:MIN(jpe,jde-1)) = &
-     ! state_tmp(ips:MIN(ipe,ide-1), (kpe-1), jps:MIN(jpe,jde-1)) * 2 - &
-     ! head_grid%ph_2(ips:MIN(ipe,ide-1), (kpe-1), jps:MIN(jpe,jde-1)) 	 
-	 
-   ! head_grid%t_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) =  &
-   ! reshape(state_p((cnt1+cnt2+cnt3+cnt4+1):(cnt1+cnt2+cnt3+cnt4+cnt5)), &
-   ! [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
-
-   ! DO mm = 1,3
-      ! head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),m(mm)) =  &
-      ! reshape(state_p((cnt1+cnt2+cnt3+cnt4+cnt5*mm+1):(cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*mm)), &
-      ! [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
-   ! ENDDO
-   ! DEALLOCATE(state_tmp)
-   
-   ! scheme 1                            
-   cnt1 = (ipe-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! U
-   cnt2 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (jpe-jps+1) ! V
-   cnt3 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) ! W
-   cnt4 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) ! PH
+   ! scheme 2   			
    cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! T
-   ! qmoist cnt5 * 6
+   cnt1=cnt5
+   cnt2=cnt5
+   cnt3=cnt5
+   cnt4=cnt5
+   ! qmoist cnt5 * 4
    dimp = cnt1+cnt2+cnt3+cnt4+cnt5*4   
    if (dimp /= dim_p) write(*,*) 'distribute dimmension of state_p error! ', &
                'required ', dim_p, 'actually ', dimp
-               
-   head_grid%u_2(ips:ipe, kps:(kpe-1), jps:MIN(jpe,jde-1)) =  &
-   reshape(state_p(1:cnt1), &
-   [ipe-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
-
-   head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), jps:jpe) =  &
-   reshape(state_p((cnt1+1):(cnt1+cnt2)), &
-   [MIN(ipe,ide-1)-ips+1,kpe-kps,jpe-jps+1])
-
-   head_grid%w_2(ips:MIN(ipe,ide-1), kps:kpe, jps:MIN(jpe,jde-1)) =  &
-   reshape(state_p((cnt1+cnt2+1):(cnt1+cnt2+cnt3)), &
-   [MIN(ipe,ide-1)-ips+1,kpe-kps+1,MIN(jpe,jde-1)-jps+1])
-
-   head_grid%ph_2(ips:MIN(ipe,ide-1), kps:kpe, jps:MIN(jpe,jde-1)) =  &
-   reshape(state_p((cnt1+cnt2+cnt3+1):(cnt1+cnt2+cnt3+cnt4)), &
-   [MIN(ipe,ide-1)-ips+1,kpe-kps+1,MIN(jpe,jde-1)-jps+1])
-
-   ! l = 1
-   ! DO j = jps, MIN(jpe,jde-1)
-     ! DO k = kps, (kpe-1)
-       ! DO i = ips, MIN(ipe,ide-1)
-         ! head_grid%t_2(i,k,j) = state_p(l+cnt1+cnt2+cnt3+cnt4)
-         ! l = l + 1
-       ! ENDDO
-     ! ENDDO
-   ! ENDDO
+			      
+   ALLOCATE(state_tmp(ips-1:MIN(ipe,ide-1)+1, kps:kpe-1, jps-1:MIN(jpe,jde-1)+1))
+   ALLOCATE(state_tmp1(ips-1:MIN(ipe,ide-1)+1, kps:kpe-1, jps-1:MIN(jpe,jde-1)+1))
+   
+   state_tmp = 0.0     
+   state_tmp(ips:MIN(ipe,ide-1), kps:kpe-1, jps:MIN(jpe,jde-1)) =  &
+     reshape(state_p(1:cnt1), &
+     [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])   
+   ! state_tmp(ips-1, kps:kpe-1, jps:MIN(jpe,jde-1)) =  &
+     ! state_tmp(ips, kps:kpe-1, jps:MIN(jpe,jde-1))*2.0 - &
+     ! state_tmp(ips+1, kps:kpe-1, jps:MIN(jpe,jde-1)) 
+   do j = jps, MIN(jpe,jde-1)
+     do k = kps, kpe-1
+	   do i = MIN(ipe,ide-1), ips
+	     head_grid%u_2(i,k,j) = 2.*state_tmp(i,k,j) - head_grid%u_2(i+1,k,j)
+       enddo
+     enddo
+   enddo
+	    
+   state_tmp = 0.0     
+   state_tmp(ips:MIN(ipe,ide-1), kps:kpe-1, jps:MIN(jpe,jde-1)) =  &
+     reshape(state_p(cnt1+1:cnt1+cnt2), &
+     [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
+   do j = MIN(jpe,jde-1), jps
+     do k = kps, kpe-1
+	   do i = ips, MIN(ipe,ide-1)
+	     head_grid%v_2(i,k,j) = 2.*state_tmp(i,k,j) - head_grid%v_2(i,k,j+1)
+       enddo
+     enddo
+   enddo
+   	    
+   state_tmp = 0.0     
+   state_tmp(ips:MIN(ipe,ide-1), kps:kpe-1, jps:MIN(jpe,jde-1)) =  &
+     reshape(state_p(cnt1+cnt2+1:cnt1+cnt2+cnt3), &
+     [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
+   state_tmp1 = 0.0     
+   state_tmp1(ips:MIN(ipe,ide-1), kps:kpe-1, jps:MIN(jpe,jde-1)) =  &
+     reshape(state_p(cnt1+cnt2+cnt3+1:cnt1+cnt2+cnt3+cnt4), &
+     [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
+   do j = jps, MIN(jpe,jde-1)
+     do k = kpe-1, kps
+	   do i = ips, MIN(ipe,ide-1)
+	     head_grid%w_2(i,k,j) = 2.*state_tmp(i,k,j) - head_grid%w_2(i,k+1,j)
+	     head_grid%ph_2(i,k,j) = 2.*state_tmp1(i,k,j) - head_grid%ph_2(i,k+1,j)
+       enddo
+     enddo
+   enddo
+	    
+	 
    head_grid%t_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) =  &
    reshape(state_p((cnt1+cnt2+cnt3+cnt4+1):(cnt1+cnt2+cnt3+cnt4+cnt5)), &
    [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
@@ -190,11 +123,75 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
       reshape(state_p((cnt1+cnt2+cnt3+cnt4+cnt5*mm+1):(cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*mm)), &
       [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
    ENDDO
+   
+   DEALLOCATE(state_tmp)
+   
+   ! ! scheme 1                            
+   ! cnt1 = (ipe-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! U
+   ! cnt2 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (jpe-jps+1) ! V
+   ! cnt3 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) ! W
+   ! cnt4 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) ! PH
+   ! cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! T
+   ! ! qmoist cnt5 * 6
+   ! dimp = cnt1+cnt2+cnt3+cnt4+cnt5*4   
+   ! if (dimp /= dim_p) write(*,*) 'distribute dimmension of state_p error! ', &
+               ! 'required ', dim_p, 'actually ', dimp
+               
+   ! head_grid%u_2(ips:ipe, kps:(kpe-1), jps:MIN(jpe,jde-1)) =  &
+   ! reshape(state_p(1:cnt1), &
+   ! [ipe-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
+
+   ! head_grid%v_2(ips:MIN(ipe,ide-1), kps:(kpe-1), jps:jpe) =  &
+   ! reshape(state_p((cnt1+1):(cnt1+cnt2)), &
+   ! [MIN(ipe,ide-1)-ips+1,kpe-kps,jpe-jps+1])
+
+   ! head_grid%w_2(ips:MIN(ipe,ide-1), kps:kpe, jps:MIN(jpe,jde-1)) =  &
+   ! reshape(state_p((cnt1+cnt2+1):(cnt1+cnt2+cnt3)), &
+   ! [MIN(ipe,ide-1)-ips+1,kpe-kps+1,MIN(jpe,jde-1)-jps+1])
+
+   ! head_grid%ph_2(ips:MIN(ipe,ide-1), kps:kpe, jps:MIN(jpe,jde-1)) =  &
+   ! reshape(state_p((cnt1+cnt2+cnt3+1):(cnt1+cnt2+cnt3+cnt4)), &
+   ! [MIN(ipe,ide-1)-ips+1,kpe-kps+1,MIN(jpe,jde-1)-jps+1])
+
+   ! ! l = 1
+   ! ! DO j = jps, MIN(jpe,jde-1)
+     ! ! DO k = kps, (kpe-1)
+       ! ! DO i = ips, MIN(ipe,ide-1)
+         ! ! head_grid%t_2(i,k,j) = state_p(l+cnt1+cnt2+cnt3+cnt4)
+         ! ! l = l + 1
+       ! ! ENDDO
+     ! ! ENDDO
+   ! ! ENDDO
+   ! head_grid%t_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) =  &
+   ! reshape(state_p((cnt1+cnt2+cnt3+cnt4+1):(cnt1+cnt2+cnt3+cnt4+cnt5)), &
+   ! [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
+
+   ! DO mm = 1,3
+      ! head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),m(mm)) =  &
+      ! reshape(state_p((cnt1+cnt2+cnt3+cnt4+cnt5*mm+1):(cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*mm)), &
+      ! [MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
+   ! ENDDO
 ! if (1==0) then
-   print *, maxval(head_grid%u_2),minval(head_grid%u_2),sum(head_grid%u_2),sum(head_grid%u_2)/size(head_grid%u_2)
-   print *, maxval(head_grid%v_2),minval(head_grid%v_2),sum(head_grid%v_2),sum(head_grid%v_2)/size(head_grid%v_2)
-   print *, maxval(head_grid%w_2),minval(head_grid%w_2),sum(head_grid%w_2),sum(head_grid%w_2)/size(head_grid%w_2)
-   print *, maxval(head_grid%ph_2),minval(head_grid%ph_2),sum(head_grid%ph_2),sum(head_grid%ph_2)/size(head_grid%ph_2)
+   print *, maxval(head_grid%u_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+     minval(head_grid%u_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+     sum(head_grid%u_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+     sum(head_grid%u_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)))/&
+	 size(head_grid%u_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)))
+   print *, maxval(head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+     minval(head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+	 sum(head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+	 sum(head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)))/&
+	 size(head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)))
+   print *, maxval(head_grid%w_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+     minval(head_grid%w_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+	 sum(head_grid%w_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+	 sum(head_grid%w_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)))/&
+	 size(head_grid%w_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)))
+   print *, maxval(head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+     minval(head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+	 sum(head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))),&
+	 sum(head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)))/&
+	 size(head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)))
    print *, maxval(head_grid%t_2),minval(head_grid%t_2),sum(head_grid%t_2),sum(head_grid%t_2)/size(head_grid%t_2)
    print *, maxval(head_grid%moist(:,:,:,1)),minval(head_grid%moist(:,:,:,1)),sum(head_grid%moist(:,:,:,1))
    print *, maxval(head_grid%moist(:,:,:,2)),minval(head_grid%moist(:,:,:,2)),sum(head_grid%moist(:,:,:,2))

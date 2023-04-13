@@ -67,6 +67,7 @@ MODULE obs_SOUND_V_pdafomi
   ! Variables which are inputs to the module (usually set in init_pdaf)
   LOGICAL :: assim_SOUND_V        !< Whether to assimilate this data type
   REAL(8) :: rms_obs_SOUND_V      !< Observation error standard deviation (for constant errors)
+  CHARACTER(LEN=100) :: file_syntobs_SOUND_V, file_syntobs_SOUND_T
 
   ! One can declare further variables, e.g. for file names which can
   ! be use-included in init_pdaf() and initialized there.
@@ -169,10 +170,16 @@ CONTAINS
 !!
   SUBROUTINE init_dim_obs_SOUND_V(step, dim_obs)
 
+! added by Changliang Shao on 2022.1228
+    USE module_domain, ONLY : head_grid, get_ijk_from_grid
+    USE mod_assimilation, &      ! Assimilation variables
+         ONLY: deg2rad, n_fields, off_fields, dim_fields, twin_experiment, &
+               startn, filtertype, local_range, &
+               ids, ide, jds, jde, kds, kde,    &
+               ims, ime, jms, jme, kms, kme,    &
+               ips, ipe, jps, jpe, kps, kpe
     USE PDAFomi, &
          ONLY: PDAFomi_gather_obs
-    USE mod_assimilation, &
-         ONLY: filtertype, local_range
 
     IMPLICIT NONE
 
@@ -181,12 +188,15 @@ CONTAINS
     INTEGER, INTENT(inout) :: dim_obs    !< Dimension of full observation vector
 
 ! *** Local variables ***
-    INTEGER :: i, j                      ! Counters
+    INTEGER :: i, j, k, l, NROWS            ! Counters
     INTEGER :: dim_obs_p                 ! Number of process-local observations
-    REAL(8), ALLOCATABLE :: obs_p(:)        ! PE-local observation vector
+    REAL(8), ALLOCATABLE :: obs_p(:), obs_tmp(:)        ! PE-local observation vector
     REAL(8), ALLOCATABLE :: ivar_obs_p(:)   ! PE-local inverse observation error variance
     REAL(8), ALLOCATABLE :: ocoord_p(:,:)   ! PE-local observation coordinates 
-
+    CHARACTER(len=2) :: stepstr          ! String for time step
+! added by Changliang Shao on 2022.1228  
+    integer                   :: startobs ! start time for obs, 0 for the first obs time. Shao on 2023.0315
+    integer                   :: mm,dimx,dimy,dimz,dimp
 
     ! Template reminder - delete when implementing functionality
     WRITE (*,*) 'init_SOUND_V_pdafomi: Initialize observations'
@@ -206,27 +216,19 @@ CONTAINS
 
     ! Number of coordinates used for distance computation
     ! The distance compution starts from the first row
-    thisobs%ncoord = 2
+    thisobs%ncoord = 3
 
-
-! +++++ This is a dummy implementation for a single observation
-! +++++ Its only purpose is to let the program run with segmentation fault
-
-    IF (mype_filter==0) &
-         WRITE (*,'(8x,a)') 'Dummy implementation of a single observation'
-
-    dim_obs_p = 1
-    ALLOCATE(obs_p(dim_obs_p))
-    obs_p = 1.0
-    ALLOCATE(ocoord_p(thisobs%ncoord, dim_obs_p))
-    ocoord_p = 1.0
-    ALLOCATE(thisobs%id_obs_p(1 , dim_obs_p))
-    thisobs%id_obs_p = 1
-    ALLOCATE(ivar_obs_p(dim_obs_p))
-    ivar_obs_p = 1.0
-! +++++ END OF DUMMY OBSERVATION
-
-
+    ! Specify the overall domain size
+    ! ONLY REQUIRED FOR THISOBS%USE_GLOBAL_OBS = 0
+    ! OR THISOBS%DISTTYPE = 1 (periodicity)
+    ALLOCATE(thisobs%domainsize(thisobs%ncoord))
+    thisobs%domainsize = 0
+	
+    ! Specify whether to (1) use global observations for local filters,
+    ! or (0) restrict the full observations to those relevant for a process domain
+    thisobs%use_global_obs = 0
+	
+	
 ! **********************************
 ! *** Read PE-local observations ***
 ! **********************************
@@ -242,8 +244,7 @@ CONTAINS
 
     ! *** Count valid observations that lie within the process sub-domain ***
 
-!    dim_obs_p = ...
-    
+    dim_obs_p = dim_fields(2)
 
     ! *** Initialize vector of observations on the process sub-domain ***
 
@@ -347,9 +348,69 @@ CONTAINS
 
     ! This routine is generic for the case that only the observations, 
     ! inverse variances and observation coordinates are gathered
+	
+    IF (dim_obs_p>0) THEN
+	
+        ALLOCATE(obs_p(dim_obs_p))
+        obs_p = 0.0
+		
+        IF (filtertype /= 100) THEN
+		  CALL read_syn_obs_prepost(file_syntobs_SOUND_V, &
+		       dim_obs_p, obs_p, abs(step), 1-mype_filter)
+		ENDIF
+		  
+        NROWS = 1
+		ALLOCATE(thisobs%id_obs_p(NROWS, dim_obs_p))
+        ! do i = 1,dim_obs_p
+           ! thisobs%id_obs_p(1,i) = off_fields(5) + i
+        ! enddo
+		
+		ALLOCATE(ocoord_p(thisobs%ncoord, dim_obs_p))
+        l = 1
+        DO j = jps, MIN(jpe,jde-1)
+           DO k = kps, (kpe-1)
+              DO i = ips, MIN(ipe,ide-1)
+			     thisobs%id_obs_p(1,l) = l + off_fields(2)
+		         ! for ideal case on grid point
+                 ocoord_p(1,l) = real(i)
+                 ocoord_p(2,l) = real(j)
+                 ocoord_p(3,l) = real(k)
+			     ! for real case below
+                 ! ocoord_p(1,l) = head_grid%XLONG(i,j) * deg2rad
+                 ! ocoord_p(2,l) = head_grid%XLAT(i,j) * deg2rad
+                 ! ocoord_p(3,l) = (head_grid%ph_2(i,k,j)+head_grid%phb(i,k,j)+ &
+                 ! head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81
+                 l = l + 1
+              ENDDO
+           ENDDO
+        ENDDO
+		
+        ALLOCATE(thisobs%icoeff_p(NROWS, dim_obs_p))		
+        thisobs%icoeff_p = 1
+        ALLOCATE(ivar_obs_p(dim_obs_p))
+        ivar_obs_p = 1. / (rms_obs_SOUND_V * rms_obs_SOUND_V)
+		
+     ELSE
+        ! +++++ This is a dummy implementation for a single observation
+        ! +++++ Its only purpose is to let the program run with segmentation fault
+        IF (mype_filter==0) &
+            WRITE (*,'(8x,a)') 'Dummy implementation of a single observation'
+        dim_obs_p = 1
+        ALLOCATE(obs_p(dim_obs_p))
+        obs_p = 1.0
+        ALLOCATE(ocoord_p(thisobs%ncoord, dim_obs_p))
+        ocoord_p = 1.0
+        ALLOCATE(thisobs%id_obs_p(1 , dim_obs_p))
+        thisobs%id_obs_p = 1
+        ALLOCATE(ivar_obs_p(dim_obs_p))
+        ivar_obs_p = 1.0
+        ! +++++ END OF DUMMY OBSERVATION
+     ENDIF
 
-    CALL PDAFomi_gather_obs(thisobs, dim_obs_p, obs_p, ivar_obs_p, ocoord_p, &
-         thisobs%ncoord, local_range, dim_obs)
+     ! This routine is generic for the case that only the observations, 
+     ! inverse variances and observation coordinates are gathered
+     CALL PDAFomi_gather_obs(thisobs, dim_obs_p, obs_p, ivar_obs_p, ocoord_p, &
+                             thisobs%ncoord, local_range, dim_obs)
 
 
 ! *********************************************************
@@ -365,8 +426,8 @@ CONTAINS
 ! *** Finishing up ***
 ! ********************
 
-    ! Deallocate all local arrays
-!    DEALLOCATE(obs_p, ocoord_p, ivar_obs_p)
+    ! Deallocate all local arrays    
+	DEALLOCATE(obs_p, ocoord_p, ivar_obs_p)
 
     ! Arrays in THISOBS have to be deallocated after the analysis step
     ! by a call to deallocate_obs() in prepoststep_pdaf.
@@ -415,6 +476,10 @@ CONTAINS
 
        ! Example: Observation operator for observed grid point values
        CALL PDAFomi_obs_op_gridpoint(thisobs, state_p, ostate)
+	   ! print *, 'size(thisobs%obs_f),mean(thisobs%obs_f)', &
+                ! size(thisobs%obs_f),sum(thisobs%obs_f)/size(thisobs%obs_f)
+	   ! print *, 'size(ostate),mean(ostate)', &
+                ! size(ostate),sum(ostate)/size(ostate)
 
     END IF
 
@@ -509,7 +574,7 @@ CONTAINS
 
 
     ! Template reminder - delete when implementing functionality
-    ! WRITE (*,*) 'init_SOUND_V_pdafomi: Apply covariance localization'
+    WRITE (*,*) 'init_SOUND_V_pdafomi: Apply covariance localization'
 
 ! *************************************
 ! *** Apply covariance localization ***

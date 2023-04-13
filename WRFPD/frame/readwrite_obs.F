@@ -311,3 +311,109 @@ SUBROUTINE read_syn_obs(file_obs, dim_obs_f, observation_f, offset, screen)
   stat(s) = NF90_CLOSE(fileid)
   
 END SUBROUTINE read_syn_obs
+! ---------------------------------------------------
+!BOP
+!> Read vector of synthetic observations from file
+!!
+!! This routine writes observations into a netcdf file
+!!
+!! The routine should only be called by a single filter
+!! process if a single file is used (usually holding
+!! all available observations). If separate files
+!! for difference processes are used, each of these
+!! processes needs to call the routine.
+!!
+!! __Revision history:__
+!! * 2019-01 - Lars Nerger - Initial code
+!! *Later revisions - see svn log
+!!
+SUBROUTINE read_syn_obs_prepost(file_obs, dim_obs_f, observation_f, step, screen)
+
+  USE netcdf        ! Netcdf binary format
+
+  IMPLICIT NONE
+
+! *** Arguments ***
+  INTEGER, INTENT(in) :: dim_obs_f   !< Dimension of full observation vector
+  REAL(8), INTENT(out)   :: observation_f(dim_obs_f) !< Full observation vector
+  CHARACTER(len=*)    :: file_obs    !< Name of observation file
+  INTEGER, INTENT(in) :: step      !< step for model run
+  INTEGER, INTENT(in) :: screen      !< Whether to print output
+
+! *** Local variables ***
+  INTEGER :: i, s                         ! Counters
+  INTEGER :: nter  ! added for no save. Changliang Shao on 2023.04.06
+  INTEGER :: fileid                       ! netcdf-ID of file
+  INTEGER :: id_obs                       ! IDs for dimensions
+  INTEGER :: id_dimobsmax                 ! ID for dimension variable
+  INTEGER :: stat(100)                    ! status flag
+  INTEGER :: countv(2), startv(2)         ! index arrays for writing
+
+  INTEGER :: dim_obs_max   ! maximum observation dimension in file
+  INTEGER :: dim_obs_store ! size of observation vector to be stored, min(dim_obs_max, dim_obs_f)
+
+
+  
+! ************************************************
+! *** Configuration                            ***
+! ************************************************
+
+  ! Increment file position counter
+  nter = step / 60
+  if (nter == 0) goto 789
+
+  ! Print name file observation file
+  IF (screen>0) THEN
+     WRITE (*,'(5x,a,i7,a,a)') 'Read synthetic observations at step ', nter, &
+          ' from file: ',TRIM(file_obs)
+  END IF
+
+! ***********************************************
+! *** Write observational information to file ***
+! ***********************************************
+
+  ! Open file
+  s = 1
+  stat(s) = NF90_OPEN(TRIM(file_obs), NF90_WRITE, fileid)
+
+  ! Read maximum number of observations
+  s = s + 1
+  stat(s) = NF90_INQ_DIMID(fileid, 'dim_obs_max', id_dimobsmax)
+  s = s + 1
+  stat(s) = NF90_Inquire_dimension(fileid, id_dimobsmax, len=dim_obs_max)
+  s = s + 1
+
+  IF (dim_obs_f<= dim_obs_max) THEN
+     dim_obs_store = dim_obs_f
+  ELSE
+     dim_obs_store = dim_obs_max
+     WRITE (*,*) 'WARNING: Truncating observations to maximum observation dimension in file'
+  END IF
+
+  ! Write vector of observations
+  stat(s) = NF90_INQ_VARID(fileid, 'obs', id_obs)
+  s = s + 1
+
+  startv(2) = nter
+  countv(2) = 1
+  startv(1) = 1
+  countv(1) = dim_obs_store
+  stat(s) = NF90_GET_VAR(fileid, id_obs, observation_f, start=startv, count=countv)
+
+  DO i = 1,  s
+     IF (stat(i) /= NF90_NOERR) &
+          WRITE(*, *) 'NetCDF error in reading observations, no.', i
+     IF (stat(i) /= NF90_NOERR) &
+          write (*,*)  NF90_STRERROR(stat(i))
+  END DO
+
+! *****************
+! *** Clean up  ***
+! *****************
+
+  ! Close files
+  s = s + 1
+  stat(s) = NF90_CLOSE(fileid)
+  789 continue
+  
+END SUBROUTINE read_syn_obs_prepost

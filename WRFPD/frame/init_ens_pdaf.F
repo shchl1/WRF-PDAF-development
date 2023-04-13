@@ -31,7 +31,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
      ens_p, flag)
 
 ! added by Changliang Shao on 2022.1228
-  USE module_domain, ONLY : head_grid, get_ijk_from_grid
+  USE module_domain, ONLY : head_grid, get_ijk_from_grid 
   USE mod_parallel_pdaf, &     ! Parallelization
        ONLY: mype_filter, npes_filter, COMM_filter, MPIerr, MPIstatus
   USE mod_assimilation, &      ! Assimilation variables
@@ -52,6 +52,9 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 
 
 ! *** local variables ***
+  INTEGER :: ids, ide, jds, jde, kds, kde,    &
+             ims, ime, jms, jme, kms, kme,    & 
+			 ips, ipe, jps, jpe, kps, kpe
   INTEGER :: i, j, k, row, col, s, n  ! counters
   INTEGER, SAVE :: allocflag = 0      ! Flag for memory counting
   REAL(8), ALLOCATABLE :: ens(:,:)       ! global ensemble
@@ -85,9 +88,6 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
   integer, allocatable :: indx(:,:),cntx(:,:),indy(:)
   
 ! added by Changliang Shao on 2023.0210  
-  INTEGER                   :: ids, ide, jds, jde, kds, kde,    &
-                               ims, ime, jms, jme, kms, kme,    &
-                               ips, ipe, jps, jpe, kps, kpe
   integer                   :: mm,dimx,dimy,dimz,dimp,     &
                                cnt1,cnt2,cnt3,cnt4,cnt5
   integer,dimension(6) :: m
@@ -97,22 +97,31 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 ! *** INITIALIZATION ***
 ! **********************
 
-   data m /1,2,3,4,7,8/  !'QV','QC','QR','QI','QS','QG'  
-   call get_ijk_from_grid (  head_grid ,                &
-                             ids, ide, jds, jde, kds, kde,    &
-                             ims, ime, jms, jme, kms, kme,    &
-                             ips, ipe, jps, jpe, kps, kpe   ) 
+  ! added by Changliang Shao on 2022.1228
+  data m /1,2,3,4,7,8/  !'QV','QC','QR','QI','QS','QG'  
+  call get_ijk_from_grid (  head_grid ,                &
+                            ids, ide, jds, jde, kds, kde,    &
+                            ims, ime, jms, jme, kms, kme,    &
+                            ips, ipe, jps, jpe, kps, kpe   ) 
                              
-   cnt1 = (ipe-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! U
-   cnt2 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (jpe-jps+1) ! V
-   cnt3 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) !W
-   cnt4 = cnt3 !PH
+   ! cnt1 = (ipe-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! U GRID C
+   ! cnt2 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (jpe-jps+1) ! V
+   ! cnt3 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) !W
+   ! cnt4 = cnt3 !PH
    cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) !T
-   dimu = (ide-ids+1)*(kde-kds)*(jde-jds) ! U
-   dimv = (ide-ids)*(kde-kds)*(jde-jds+1) ! V
-   dimw = (ide-ids)*(kde-kds+1)*(jde-jds) ! W
-   dimph = dimw ! PH
+   cnt1 = cnt5 ! GRID A 
+   cnt2 = cnt5
+   cnt3 = cnt5
+   cnt4 = cnt5
+   ! dimu = (ide-ids+1)*(kde-kds)*(jde-jds) ! U GRID C 
+   ! dimv = (ide-ids)*(kde-kds)*(jde-jds+1) ! V
+   ! dimw = (ide-ids)*(kde-kds+1)*(jde-jds) ! W
+   ! dimph = dimw ! PH
    dimt = (ide-ids)*(kde-kds)*(jde-jds)  ! T
+   dimu = dimt
+   dimv = dimt
+   dimw = dimt
+   dimph = dimt
    dimqv = dimt
    dimqc = dimt
    dimqr = dimt     ! QV,QC,QR
@@ -213,14 +222,22 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
       IF (ierr.NE.0) write (*,*) 'Failed to allocate state(dim_state). '
 	  ALLOCATE(meanstate(dim_state), STAT=ierr)
       IF (ierr.NE.0) write (*,*) 'Failed to allocate meanstate(dim_state). '
-      ALLOCATE(U(ide-ids+1, kde-kds, jde-jds), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate U(ide-ids+1, kde-kds, jde-jds). '
-      ALLOCATE(V(ide-ids, kde-kds, jde-jds+1), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate V(ide-ids, kde-kds, jde-jds+1). '
-      ALLOCATE(W(ide-ids, kde-kds+1, jde-jds), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate W(ide-ids, kde-kds+1, jde-jds). '
-      ALLOCATE(PH(ide-ids, kde-kds+1, jde-jds), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate PH(ide-ids, kde-kds+1, jde-jds). '
+      ! ALLOCATE(U(ide-ids+1, kde-kds, jde-jds), STAT=ierr) ! grid c
+      ! IF (ierr.NE.0) write (*,*) 'Failed to allocate U(ide-ids+1, kde-kds, jde-jds). '
+      ! ALLOCATE(V(ide-ids, kde-kds, jde-jds+1), STAT=ierr)
+      ! IF (ierr.NE.0) write (*,*) 'Failed to allocate V(ide-ids, kde-kds, jde-jds+1). '
+      ! ALLOCATE(W(ide-ids, kde-kds+1, jde-jds), STAT=ierr)
+      ! IF (ierr.NE.0) write (*,*) 'Failed to allocate W(ide-ids, kde-kds+1, jde-jds). '
+      ! ALLOCATE(PH(ide-ids, kde-kds+1, jde-jds), STAT=ierr)
+      ! IF (ierr.NE.0) write (*,*) 'Failed to allocate PH(ide-ids, kde-kds+1, jde-jds). '
+      ALLOCATE(U(ide-ids, kde-kds, jde-jds), STAT=ierr) ! grid a
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate U(ide-ids, kde-kds, jde-jds). '
+      ALLOCATE(V(ide-ids, kde-kds, jde-jds), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate V(ide-ids, kde-kds, jde-jds). '
+      ALLOCATE(W(ide-ids, kde-kds, jde-jds), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate W(ide-ids, kde-kds, jde-jds). '
+      ALLOCATE(PH(ide-ids, kde-kds, jde-jds), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate PH(ide-ids, kde-kds, jde-jds). '
       ALLOCATE(T(ide-ids, kde-kds, jde-jds), STAT=ierr)
       IF (ierr.NE.0) write (*,*) 'Failed to allocate T(ide-ids, kde-kds, jde-jds). '
       ALLOCATE(QV(ide-ids, kde-kds, jde-jds), STAT=ierr)
@@ -229,14 +246,22 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
       IF (ierr.NE.0) write (*,*) 'Failed to allocate QC(ide-ids, kde-kds, jde-jds). '
       ALLOCATE(QR(ide-ids, kde-kds, jde-jds), STAT=ierr)
       IF (ierr.NE.0) write (*,*) 'Failed to allocate QR(ide-ids, kde-kds, jde-jds). '
-      ALLOCATE(EU(ide-ids+1, kde-kds, jde-jds, dim_ens), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate EU(ide-ids+1, kde-kds, jde-jds, dim_ens). '
-      ALLOCATE(EV(ide-ids, kde-kds, jde-jds+1, dim_ens), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate EV(ide-ids, kde-kds, jde-jds+1, dim_ens). '
-      ALLOCATE(EW(ide-ids, kde-kds+1, jde-jds, dim_ens), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate EW(ide-ids, kde-kds+1, jde-jds, dim_ens). '
-      ALLOCATE(EPH(ide-ids, kde-kds+1, jde-jds, dim_ens), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate EPH(ide-ids, kde-kds+1, jde-jds, dim_ens). '
+      ! ALLOCATE(EU(ide-ids+1, kde-kds, jde-jds, dim_ens), STAT=ierr)
+      ! IF (ierr.NE.0) write (*,*) 'Failed to allocate EU(ide-ids+1, kde-kds, jde-jds, dim_ens). '
+      ! ALLOCATE(EV(ide-ids, kde-kds, jde-jds+1, dim_ens), STAT=ierr)
+      ! IF (ierr.NE.0) write (*,*) 'Failed to allocate EV(ide-ids, kde-kds, jde-jds+1, dim_ens). '
+      ! ALLOCATE(EW(ide-ids, kde-kds+1, jde-jds, dim_ens), STAT=ierr)
+      ! IF (ierr.NE.0) write (*,*) 'Failed to allocate EW(ide-ids, kde-kds+1, jde-jds, dim_ens). '
+      ! ALLOCATE(EPH(ide-ids, kde-kds+1, jde-jds, dim_ens), STAT=ierr)
+      ! IF (ierr.NE.0) write (*,*) 'Failed to allocate EPH(ide-ids, kde-kds+1, jde-jds, dim_ens). '
+	  ALLOCATE(EU(ide-ids, kde-kds, jde-jds, dim_ens), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate EU(ide-ids, kde-kds, jde-jds, dim_ens). '
+      ALLOCATE(EV(ide-ids, kde-kds, jde-jds, dim_ens), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate EV(ide-ids, kde-kds, jde-jds, dim_ens). '
+      ALLOCATE(EW(ide-ids, kde-kds, jde-jds, dim_ens), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate EW(ide-ids, kde-kds, jde-jds, dim_ens). '
+      ALLOCATE(EPH(ide-ids, kde-kds, jde-jds, dim_ens), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate EPH(ide-ids, kde-kds, jde-jds, dim_ens). '
       ALLOCATE(ET(ide-ids, kde-kds, jde-jds, dim_ens), STAT=ierr)
       IF (ierr.NE.0) write (*,*) 'Failed to allocate ET(ide-ids, kde-kds, jde-jds, dim_ens). '
       ALLOCATE(EQV(ide-ids, kde-kds, jde-jds, dim_ens), STAT=ierr)
@@ -266,20 +291,22 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
    
    END IF mype0
    
-  ! *** initialize state ***
+  ! *** initialize state *** 
   
    PE0_200: IF (mype_filter /= 0) THEN
  
-      ! send sub-fields from PEs /=0
+      ! send sub-fields from PEs /=0 grid c
 	  do j = jps,MIN(jpe,jde-1)
 	    do k = kps,(kpe-1)
-	      do i = ips,ipe
+	      do i = ips,MIN(ipe,ide-1)
+	      ! do i = ips,ipe
             CALL MPI_send(head_grid%u_2(i,k,j), 1, &
             MPI_REAL4, 0, 1111, COMM_filter, MPIerr)
           enddo
 		enddo
       enddo
-	  do j = jps,jpe
+	  do j = jps,MIN(jpe,jde-1)
+	  ! do j = jps,jpe
 	    do k = kps,(kpe-1)
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_send(head_grid%v_2(i,k,j), 1, &
@@ -288,7 +315,8 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 		enddo
       enddo
 	  do j = jps,MIN(jpe,jde-1)
-	    do k = kps,kpe
+	    do k = kps,(kpe-1)
+	    ! do k = kps,kpe
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_send(head_grid%w_2(i,k,j), 1, &
             MPI_REAL4, 0, 1113, COMM_filter, MPIerr)
@@ -296,7 +324,8 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 		enddo
       enddo
 	  do j = jps,MIN(jpe,jde-1)
-	    do k = kps,kpe
+	    do k = kps,(kpe-1)
+	    ! do k = kps,kpe
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_send(head_grid%ph_2(i,k,j), 1, &
             MPI_REAL4, 0, 1114, COMM_filter, MPIerr)
@@ -333,15 +362,33 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	  
 	  if (n == 1) then	  
 	  
-        ! On PE 0 init state directly
-        U(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    head_grid%u_2(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1))
-	    V(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe) = &
-	    head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe)
-        W(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1)) = &
-        head_grid%w_2(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1))   
-        PH(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1)) = &
-        head_grid%ph_2(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1))    
+        ! ! On PE 0 init state directly grid c
+        ! U(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
+	    ! head_grid%u_2(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1)) 
+	    ! V(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe) = &
+	    ! head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe)
+        ! W(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1)) = &
+        ! head_grid%w_2(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1))   
+        ! PH(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1)) = &
+        ! head_grid%ph_2(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1))    
+        ! T(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
+        ! head_grid%t_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))	  
+	    ! QV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
+	    ! head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),1)  
+	    ! QC(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
+	    ! head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),2)  
+	    ! QR(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
+	    ! head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),3)
+		
+        ! On PE 0 init state directly grid a
+		U(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
+	    head_grid%u_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) 
+	    V(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
+	    head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))
+        W(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
+        head_grid%w_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))   
+        PH(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
+        head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))    
         T(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
         head_grid%t_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))	  
 	    QV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
@@ -358,13 +405,15 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	  
 	  do j = jps,MIN(jpe,jde-1)
 	    do k = kps,(kpe-1)
-	      do i = ips,ipe
+	      do i = ips,MIN(ipe,ide-1)
+	      ! do i = ips,ipe
             CALL MPI_recv(U(i,k,j), 1, &
             MPI_REAL4, n-1, 1111, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
-	  do j = jps,jpe
+	  ! do j = jps,jpe
+	  do j = jps,MIN(jpe,jde-1)
 	    do k = kps,(kpe-1)
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_recv(V(i,k,j), 1, &
@@ -373,7 +422,8 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 		enddo
       enddo
 	  do j = jps,MIN(jpe,jde-1)
-	    do k = kps,kpe
+	    do k = kps,(kpe-1)
+	    ! do k = kps,kpe
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_recv(W(i,k,j), 1, &
             MPI_REAL4, n-1, 1113, COMM_filter, MPIstatus, MPIerr)
@@ -381,7 +431,8 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 		enddo
       enddo
 	  do j = jps,MIN(jpe,jde-1)
-	    do k = kps,kpe
+	    do k = kps,(kpe-1)
+	    ! do k = kps,kpe
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_recv(PH(i,k,j), 1, &
             MPI_REAL4, n-1, 1114, COMM_filter, MPIstatus, MPIerr)
@@ -426,15 +477,33 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
       END DO
        
 	  ! *** initialize state ***
+	  ! ! grid c
+      ! state(1:dimu) = &
+      ! reshape(U(ids:ide,kds:(kde-1),jds:(jde-1)), [dimu])  
+      ! state((dimu+1):(dimu+dimv)) = &
+      ! reshape(V(ids:(ide-1),kds:(kde-1),jds:jde), [dimv])
+      ! state((dimu+dimv+1):(dimu+dimv+dimw)) = &
+      ! reshape(W(ids:(ide-1),kds:kde,jds:(jde-1)), [dimw]) 
+      ! state((dimu+dimv+dimw+1):(dimu+dimv+dimw+dimph)) = &
+      ! reshape(PH(ids:(ide-1),kds:kde,jds:(jde-1)), [dimph])  
+      ! state((dimu+dimv+dimw+dimph+1):(dimu+dimv+dimw+dimph+dimt)) = &
+      ! reshape(T(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimt]) 
+      ! state((dimu+dimv+dimw+dimph+dimt*1+1):(dimu+dimv+dimw+dimph+dimt+dimt*1)) = &
+      ! reshape(QV(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimt])
+      ! state((dimu+dimv+dimw+dimph+dimt*2+1):(dimu+dimv+dimw+dimph+dimt+dimt*2)) = &
+      ! reshape(QC(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimt])
+      ! state((dimu+dimv+dimw+dimph+dimt*3+1):(dimu+dimv+dimw+dimph+dimt+dimt*3)) = &
+      ! reshape(QR(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimt])
 	  
-      state(1:dimu) = &
-      reshape(U(ids:ide,kds:(kde-1),jds:(jde-1)), [dimu]) 
+	  ! grid a
+	  state(1:dimu) = &
+      reshape(U(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimu])  
       state((dimu+1):(dimu+dimv)) = &
-      reshape(V(ids:(ide-1),kds:(kde-1),jds:jde), [dimv])
+      reshape(V(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimv])
       state((dimu+dimv+1):(dimu+dimv+dimw)) = &
-      reshape(W(ids:(ide-1),kds:kde,jds:(jde-1)), [dimw]) 
+      reshape(W(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimw]) 
       state((dimu+dimv+dimw+1):(dimu+dimv+dimw+dimph)) = &
-      reshape(PH(ids:(ide-1),kds:kde,jds:(jde-1)), [dimph])  
+      reshape(PH(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimph])  
       state((dimu+dimv+dimw+dimph+1):(dimu+dimv+dimw+dimph+dimt)) = &
       reshape(T(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimt]) 
       state((dimu+dimv+dimw+dimph+dimt*1+1):(dimu+dimv+dimw+dimph+dimt+dimt*1)) = &
@@ -552,13 +621,17 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
      ! *** Initialize and send sub-state on PE 0 ***
 
       EU = reshape(ens(1:dimu,:), &
-           [ide-ids+1,kde-kds,jde-jds,dim_ens])
+           ! [ide-ids+1,kde-kds,jde-jds,dim_ens])
+           [ide-ids,kde-kds,jde-jds,dim_ens])
       EV = reshape(ens((dimu+1):(dimu+dimv),:), &
-           [ide-ids,kde-kds,jde-jds+1,dim_ens])
+           ! [ide-ids,kde-kds,jde-jds+1,dim_ens])
+           [ide-ids,kde-kds,jde-jds,dim_ens])
       EW = reshape(ens((dimu+dimv+1):(dimu+dimv+dimw),:), &
-           [ide-ids,kde-kds+1,jde-jds,dim_ens])
+           ! [ide-ids,kde-kds+1,jde-jds,dim_ens])
+           [ide-ids,kde-kds,jde-jds,dim_ens])
       EPH = reshape(ens((dimu+dimv+dimw+1):(dimu+dimv+dimw+dimph),:), &
-           [ide-ids,kde-kds+1,jde-jds,dim_ens]) 
+           ! [ide-ids,kde-kds+1,jde-jds,dim_ens]) 
+           [ide-ids,kde-kds,jde-jds,dim_ens]) 
       ET = reshape(ens((dimu+dimv+dimw+dimph+1):(dimu+dimv+dimw+dimph+dimt),:), &
            [ide-ids,kde-kds,jde-jds,dim_ens]) 
       EQV = reshape(ens((dimu+dimv+dimw+dimph+dimt*1+1):(dimu+dimv+dimw+dimph+dimt+dimt*1),:), &
@@ -606,13 +679,17 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 			   
             do i = 1, dim_ens
             ens_p(1:cnt1,i) = &
-            reshape(EU(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt1]) 
+            ! reshape(EU(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt1]) 
+            reshape(EU(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt1]) 
             ens_p((cnt1+1):(cnt1+cnt2),i) = &
-            reshape(EV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe,i), [cnt2])
+            ! reshape(EV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe,i), [cnt2])
+            reshape(EV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt2])
             ens_p((cnt1+cnt2+1):(cnt1+cnt2+cnt3),i) = &
-            reshape(EW(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt3])     
+            ! reshape(EW(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt3])  
+            reshape(EW(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt3])    
             ens_p((cnt1+cnt2+cnt3+1):(cnt1+cnt2+cnt3+cnt4),i) = &
-            reshape(EPH(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt4])      
+            ! reshape(EPH(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt4])  
+            reshape(EPH(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt4])      
             ens_p((cnt1+cnt2+cnt3+cnt4+1):(cnt1+cnt2+cnt3+cnt4+cnt5),i) = &
             reshape(ET(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt5])   
             ens_p((cnt1+cnt2+cnt3+cnt4+cnt5*1+1):&
@@ -639,13 +716,17 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 			
             do i = 1, dim_ens
 			ens_p_tmp(1:cnt1,i) = &
-            reshape(EU(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt1]) 
+            ! reshape(EU(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt1]) 
+            reshape(EU(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt1]) 
             ens_p_tmp((cnt1+1):(cnt1+cnt2),i) = &
-            reshape(EV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe,i), [cnt2])
+            ! reshape(EV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe,i), [cnt2])
+            reshape(EV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt2])
             ens_p_tmp((cnt1+cnt2+1):(cnt1+cnt2+cnt3),i) = &
-            reshape(EW(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt3])    
+            ! reshape(EW(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt3])  
+            reshape(EW(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt3])   
             ens_p_tmp((cnt1+cnt2+cnt3+1):(cnt1+cnt2+cnt3+cnt4),i) = &
-            reshape(EPH(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt4])      
+            ! reshape(EPH(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt4])  
+            reshape(EPH(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt4])    
             ens_p_tmp((cnt1+cnt2+cnt3+cnt4+1):(cnt1+cnt2+cnt3+cnt4+cnt5),i) = &
             reshape(ET(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt5])   
             ens_p_tmp((cnt1+cnt2+cnt3+cnt4+cnt5*1+1):&

@@ -172,7 +172,10 @@ CONTAINS
     USE module_domain, ONLY : head_grid, get_ijk_from_grid
     USE mod_assimilation, &      ! Assimilation variables
          ONLY: deg2rad, n_fields, off_fields, dim_fields, twin_experiment, &
-		 startn, filtertype, local_range
+               startn, filtertype, local_range, &
+               ids, ide, jds, jde, kds, kde,    &
+               ims, ime, jms, jme, kms, kme,    &
+               ips, ipe, jps, jpe, kps, kpe
     USE PDAFomi, &
          ONLY: PDAFomi_gather_obs
 
@@ -185,19 +188,12 @@ CONTAINS
 ! *** Local variables ***
     INTEGER :: i, j, k, l, NROWS            ! Counters
     INTEGER :: dim_obs_p                 ! Number of process-local observations
-    REAL(8), ALLOCATABLE :: obs_p(:)        ! PE-local observation vector
+    REAL(8), ALLOCATABLE :: obs_p(:), obs_tmp(:)        ! PE-local observation vector
     REAL(8), ALLOCATABLE :: ivar_obs_p(:)   ! PE-local inverse observation error variance
     REAL(8), ALLOCATABLE :: ocoord_p(:,:)   ! PE-local observation coordinates 
-    REAL(8), ALLOCATABLE :: obs_field(:,:,:)  ! Observation field read from file
     CHARACTER(len=2) :: stepstr          ! String for time step
 ! added by Changliang Shao on 2022.1228  
-    integer                   :: startobs ! start time for obs, 0 for the first obs time. Shao on 2023.0315
-    INTEGER                   :: ids, ide, jds, jde, kds, kde,    &
-                                 ims, ime, jms, jme, kms, kme,    &
-                                 ips, ipe, jps, jpe, kps, kpe
-    integer                   :: mm,dimx,dimy,dimz,dimp,     &
-                                 cnt1,cnt2,cnt3,cnt4,cnt5
-    integer,dimension(6) :: m
+    integer                   :: mm,dimx,dimy,dimz,dimp
 
     ! Template reminder - delete when implementing functionality
     WRITE (*,*) 'init_SOUND_T_pdafomi: Initialize observations'
@@ -205,20 +201,7 @@ CONTAINS
 ! *********************************************
 ! *** Initialize full observation dimension ***
 ! *********************************************
-
-    startobs = startn - 1   ! start time for obs, 0 for the first obs time. Shao on 2023.0315
-    data m /1,2,3,4,7,8/  !'QV','QC','QR','QI','QS','QG'  
-    call get_ijk_from_grid (  head_grid ,                &
-                             ids, ide, jds, jde, kds, kde,    &
-                             ims, ime, jms, jme, kms, kme,    &
-                             ips, ipe, jps, jpe, kps, kpe   ) 
-                             
-    cnt1 = (ipe-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! U
-    cnt2 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (jpe-jps+1) ! V
-    cnt3 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) !W
-    cnt4 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) !PH
-    cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) !T   
-		
+	
     IF (mype_filter==0 .and. assim_SOUND_T) &
          WRITE (*,'(8x,a)') 'Assimilate observations - OBS_SOUND_T'
 
@@ -262,7 +245,7 @@ CONTAINS
 
     ! *** Count valid observations that lie within the process sub-domain ***
 
-    dim_obs_p = cnt5
+    dim_obs_p = dim_fields(5)
     
 
     ! *** Initialize vector of observations on the process sub-domain ***
@@ -398,9 +381,9 @@ CONTAINS
         ALLOCATE(obs_p(dim_obs_p))
         obs_p = 0.0
 		
-        IF (filtertype /= 100) THEN
-          CALL read_syn_obs(file_syntobs_SOUND_T, &
-	                        dim_obs_p, obs_p, startobs, 1-mype_filter)
+        IF (filtertype /= 100) THEN 
+		  CALL read_syn_obs_prepost(file_syntobs_SOUND_T, &
+		       dim_obs_p, obs_p, abs(step), 1-mype_filter)
 		ENDIF
 		  
         NROWS = 1
@@ -467,10 +450,8 @@ CONTAINS
       ! size(obs_p),sum(obs_p)/size(obs_p)
       ! print *, 'size(thisobs%obs_f),mean(thisobs%obs_f)', &
       ! size(thisobs%obs_f),sum(thisobs%obs_f)/size(thisobs%obs_f)
-   ! END IF
-   
-   print *, 'size(thisobs%obs_f),mean(thisobs%obs_f)', &
-   size(thisobs%obs_f),sum(thisobs%obs_f)/size(thisobs%obs_f)
+   ! END IF   
+  
 
 ! ********************
 ! *** Finishing up ***
@@ -526,6 +507,10 @@ CONTAINS
 
        ! Example: Observation operator for observed grid point values
        CALL PDAFomi_obs_op_gridpoint(thisobs, state_p, ostate)
+	   ! print *, 'size(thisobs%obs_f),mean(thisobs%obs_f)', &
+                ! size(thisobs%obs_f),sum(thisobs%obs_f)/size(thisobs%obs_f)
+	   ! print *, 'size(ostate),mean(ostate)', &
+                ! size(ostate),sum(ostate)/size(ostate)
 
     END IF
 

@@ -26,13 +26,13 @@ $(SOLVER)_wrf_SST_ESMF : wrf_ESMFMod.o wrf_SST_ESMF.o ../main/module_wrf_top.o
 
 $(SOLVER)_ideal : module_initialize ideal_$(SOLVER).o
 	$(RANLIB) $(RLFLAGS) $(LIBWRFLIB) 
-	$(LD) -o ideal.exe $(LDFLAGS) ideal_$(SOLVER).o ../dyn_$(SOLVER)/module_initialize_$(IDEAL_CASE).o $(LIBWRFLIB) $(LIB)
+	$(LD) -o ideal.exe $(LDFLAGS) ideal_$(SOLVER).o ../dyn_$(SOLVER)/module_initialize_$(IDEAL_CASE).o $(LIBWRFLIB) $(LIB) -L$(PDAF)/lib -lpdaf-d -L$(LAPACKLIB) -llapack -lblas
 
 $(SOLVER)_real : module_initialize ndown_$(SOLVER).o tc_$(SOLVER).o real_$(SOLVER).o
 	$(RANLIB) $(RLFLAGS) $(LIBWRFLIB) 
-	$(LD) -o ndown.exe $(LDFLAGS) ndown_$(SOLVER).o  ../dyn_$(SOLVER)/module_initialize_$(IDEAL_CASE).o $(LIBWRFLIB) $(LIB)
-	$(LD) -o tc.exe $(LDFLAGS) tc_$(SOLVER).o  ../dyn_$(SOLVER)/module_initialize_$(IDEAL_CASE).o $(LIBWRFLIB) $(LIB)
-	$(LD) -o real.exe $(LDFLAGS) real_$(SOLVER).o ../dyn_$(SOLVER)/module_initialize_$(IDEAL_CASE).o $(LIBWRFLIB) $(LIB)
+	$(LD) -o ndown.exe $(LDFLAGS) ndown_$(SOLVER).o  ../dyn_$(SOLVER)/module_initialize_$(IDEAL_CASE).o $(LIBWRFLIB) $(LIB) -L$(PDAF)/lib -lpdaf-d -L$(LAPACKLIB) -llapack -lblas
+	$(LD) -o tc.exe $(LDFLAGS) tc_$(SOLVER).o  ../dyn_$(SOLVER)/module_initialize_$(IDEAL_CASE).o $(LIBWRFLIB) $(LIB) -L$(PDAF)/lib -lpdaf-d -L$(LAPACKLIB) -llapack -lblas
+	$(LD) -o real.exe $(LDFLAGS) real_$(SOLVER).o ../dyn_$(SOLVER)/module_initialize_$(IDEAL_CASE).o $(LIBWRFLIB) $(LIB) -L$(PDAF)/lib -lpdaf-d -L$(LAPACKLIB) -llapack -lblas
 
 convert_em : convert_em.o
 	$(RANLIB) $(RLFLAGS) $(LIBWRFLIB)
