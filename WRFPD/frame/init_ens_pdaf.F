@@ -55,12 +55,12 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
   INTEGER :: ids, ide, jds, jde, kds, kde,    &
              ims, ime, jms, jme, kms, kme,    & 
 			 ips, ipe, jps, jpe, kps, kpe
-  INTEGER :: i, j, k, row, col, s, n  ! counters
+  INTEGER :: i, j, k, row, col, s, n, l  ! counters
   INTEGER, SAVE :: allocflag = 0      ! Flag for memory counting
   REAL(8), ALLOCATABLE :: ens(:,:)       ! global ensemble
   REAL(8), ALLOCATABLE :: state(:),meanstate(:) ! global state vector
-  REAL(4), ALLOCATABLE :: U(:,:,:),V(:,:,:),W(:,:,:),QV(:,:,:),QC(:,:,:),QR(:,:,:)
-  REAL(4), ALLOCATABLE :: T(:,:,:),PH(:,:,:)
+  REAL(8), ALLOCATABLE :: U(:,:,:),V(:,:,:),W(:,:,:),QV(:,:,:),QC(:,:,:),QR(:,:,:)
+  REAL(8), ALLOCATABLE :: T(:,:,:),PH(:,:,:)
   REAL(8), ALLOCATABLE :: EU(:,:,:,:),EV(:,:,:,:),EW(:,:,:,:),EPH(:,:,:,:)
   REAL(8), ALLOCATABLE :: ET(:,:,:,:),EQV(:,:,:,:),EQC(:,:,:,:),EQR(:,:,:,:)
   REAL(8), ALLOCATABLE :: eofV(:,:)      ! matrix of eigenvectors V 
@@ -296,58 +296,80 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
    PE0_200: IF (mype_filter /= 0) THEN
  
       ! send sub-fields from PEs /=0 grid c
-	  do j = jps,MIN(jpe,jde-1)
-	    do k = kps,(kpe-1)
-	      do i = ips,MIN(ipe,ide-1)
-	      ! do i = ips,ipe
-            CALL MPI_send(head_grid%u_2(i,k,j), 1, &
-            MPI_REAL4, 0, 1111, COMM_filter, MPIerr)
-          enddo
-		enddo
+	  ! do j = jps,MIN(jpe,jde-1)
+	    ! do k = kps,(kpe-1)
+	      ! do i = ips,MIN(ipe,ide-1)
+	      ! ! do i = ips,ipe
+            ! CALL MPI_send(head_grid%u_2(i,k,j), 1, &
+            ! MPI_REAL4, 0, 1111, COMM_filter, MPIerr)
+          ! enddo
+		! enddo
+      ! enddo
+	  ! do j = jps,MIN(jpe,jde-1)
+	  ! ! do j = jps,jpe
+	    ! do k = kps,(kpe-1)
+	      ! do i = ips,MIN(ipe,ide-1)
+            ! CALL MPI_send(head_grid%v_2(i,k,j), 1, &
+            ! MPI_REAL4, 0, 1112, COMM_filter, MPIerr)
+          ! enddo
+		! enddo
+      ! enddo
+	  ! do j = jps,MIN(jpe,jde-1)
+	    ! do k = kps,(kpe-1)
+	    ! ! do k = kps,kpe
+	      ! do i = ips,MIN(ipe,ide-1)
+            ! CALL MPI_send(head_grid%w_2(i,k,j), 1, &
+            ! MPI_REAL4, 0, 1113, COMM_filter, MPIerr)
+          ! enddo
+		! enddo
+      ! enddo
+	  ! do j = jps,MIN(jpe,jde-1)
+	    ! do k = kps,(kpe-1)
+	    ! ! do k = kps,kpe
+	      ! do i = ips,MIN(ipe,ide-1)
+            ! CALL MPI_send(head_grid%ph_2(i,k,j), 1, &
+            ! MPI_REAL4, 0, 1114, COMM_filter, MPIerr)
+          ! enddo
+		! enddo
+      ! enddo
+	  ! do j = jps,MIN(jpe,jde-1)
+	    ! do k = kps,(kpe-1)
+	      ! do i = ips,MIN(ipe,ide-1)
+            ! CALL MPI_send(head_grid%t_2(i,k,j), 1, &
+            ! MPI_REAL4, 0, 1115, COMM_filter, MPIerr)
+          ! enddo
+		! enddo
+      ! enddo
+	  ! do mm = 1,3
+	  ! do j = jps,MIN(jpe,jde-1)
+	    ! do k = kps,(kpe-1)
+	      ! do i = ips,MIN(ipe,ide-1)
+            ! CALL MPI_send(head_grid%moist(i,k,j,m(mm)), 1, &
+            ! MPI_REAL4, 0, 1115+mm, COMM_filter, MPIerr)
+          ! enddo
+		! enddo
+      ! enddo
+	  ! enddo
+	  
+      ! send sub-fields from PEs /=0 grid a
+	  do l = 1, cnt1
+	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1111, COMM_filter, MPIerr)
       enddo
-	  do j = jps,MIN(jpe,jde-1)
-	  ! do j = jps,jpe
-	    do k = kps,(kpe-1)
-	      do i = ips,MIN(ipe,ide-1)
-            CALL MPI_send(head_grid%v_2(i,k,j), 1, &
-            MPI_REAL4, 0, 1112, COMM_filter, MPIerr)
-          enddo
-		enddo
+	  do l = cnt1+1, cnt1+cnt2
+	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1112, COMM_filter, MPIerr)
       enddo
-	  do j = jps,MIN(jpe,jde-1)
-	    do k = kps,(kpe-1)
-	    ! do k = kps,kpe
-	      do i = ips,MIN(ipe,ide-1)
-            CALL MPI_send(head_grid%w_2(i,k,j), 1, &
-            MPI_REAL4, 0, 1113, COMM_filter, MPIerr)
-          enddo
-		enddo
+	  do l = cnt1+cnt2+1, cnt1+cnt2+cnt3
+	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1113, COMM_filter, MPIerr)
       enddo
-	  do j = jps,MIN(jpe,jde-1)
-	    do k = kps,(kpe-1)
-	    ! do k = kps,kpe
-	      do i = ips,MIN(ipe,ide-1)
-            CALL MPI_send(head_grid%ph_2(i,k,j), 1, &
-            MPI_REAL4, 0, 1114, COMM_filter, MPIerr)
-          enddo
-		enddo
+	  do l = cnt1+cnt2+cnt3+1, cnt1+cnt2+cnt3+cnt4
+	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1114, COMM_filter, MPIerr)
       enddo
-	  do j = jps,MIN(jpe,jde-1)
-	    do k = kps,(kpe-1)
-	      do i = ips,MIN(ipe,ide-1)
-            CALL MPI_send(head_grid%t_2(i,k,j), 1, &
-            MPI_REAL4, 0, 1115, COMM_filter, MPIerr)
-          enddo
-		enddo
+	  do l = cnt1+cnt2+cnt3+cnt4+1, cnt1+cnt2+cnt3+cnt4+cnt5
+	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1115, COMM_filter, MPIerr)
       enddo
 	  do mm = 1,3
-	  do j = jps,MIN(jpe,jde-1)
-	    do k = kps,(kpe-1)
-	      do i = ips,MIN(ipe,ide-1)
-            CALL MPI_send(head_grid%moist(i,k,j,m(mm)), 1, &
-            MPI_REAL4, 0, 1115+mm, COMM_filter, MPIerr)
-          enddo
-		enddo
+	  do l = cnt1+cnt2+cnt3+cnt4+cnt5*mm+1, cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*mm
+	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1115+mm, COMM_filter, MPIerr)
       enddo
 	  enddo
  
@@ -382,21 +404,29 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 		
         ! On PE 0 init state directly grid a
 		U(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    head_grid%u_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) 
+	    reshape(state_p(1:cnt1), &
+		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
 	    V(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))
+	    reshape(state_p(cnt1+1:cnt1+cnt2), &
+		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
         W(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-        head_grid%w_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))   
+	    reshape(state_p(cnt1+cnt2+1:cnt1+cnt2+cnt3), &
+		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
         PH(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-        head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))    
+	    reshape(state_p(cnt1+cnt2+cnt3+1:cnt1+cnt2+cnt3+cnt4), &
+		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
         T(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-        head_grid%t_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))	  
+	    reshape(state_p(cnt1+cnt2+cnt3+cnt4+1:cnt1+cnt2+cnt3+cnt4+cnt5), &
+		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
 	    QV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),1)  
+	    reshape(state_p(cnt1+cnt2+cnt3+cnt4+cnt5*1+1:cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*1), &
+		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1]) 
 	    QC(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),2)  
+	    reshape(state_p(cnt1+cnt2+cnt3+cnt4+cnt5*2+1:cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*2), &
+		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
 	    QR(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),3)
+	    reshape(state_p(cnt1+cnt2+cnt3+cnt4+cnt5*3+1:cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*3), &
+		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
  
       ! Receive part of state field from PEs > 0 into 
       ! correct part of global state 
@@ -408,7 +438,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	      do i = ips,MIN(ipe,ide-1)
 	      ! do i = ips,ipe
             CALL MPI_recv(U(i,k,j), 1, &
-            MPI_REAL4, n-1, 1111, COMM_filter, MPIstatus, MPIerr)
+            MPI_REAL8, n-1, 1111, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
@@ -417,7 +447,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    do k = kps,(kpe-1)
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_recv(V(i,k,j), 1, &
-            MPI_REAL4, n-1, 1112, COMM_filter, MPIstatus, MPIerr)
+            MPI_REAL8, n-1, 1112, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
@@ -426,7 +456,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    ! do k = kps,kpe
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_recv(W(i,k,j), 1, &
-            MPI_REAL4, n-1, 1113, COMM_filter, MPIstatus, MPIerr)
+            MPI_REAL8, n-1, 1113, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
@@ -435,7 +465,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    ! do k = kps,kpe
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_recv(PH(i,k,j), 1, &
-            MPI_REAL4, n-1, 1114, COMM_filter, MPIstatus, MPIerr)
+            MPI_REAL8, n-1, 1114, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
@@ -443,7 +473,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    do k = kps,(kpe-1)
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_recv(T(i,k,j), 1, &
-            MPI_REAL4, n-1, 1115, COMM_filter, MPIstatus, MPIerr)
+            MPI_REAL8, n-1, 1115, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
@@ -451,7 +481,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    do k = kps,(kpe-1)
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_recv(QV(i,k,j), 1, &
-            MPI_REAL4, n-1, 1115+1, COMM_filter, MPIstatus, MPIerr)
+            MPI_REAL8, n-1, 1115+1, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
@@ -459,7 +489,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    do k = kps,(kpe-1)
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_recv(QC(i,k,j), 1, &
-            MPI_REAL4, n-1, 1115+2, COMM_filter, MPIstatus, MPIerr)
+            MPI_REAL8, n-1, 1115+2, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
@@ -467,7 +497,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    do k = kps,(kpe-1)
 	      do i = ips,MIN(ipe,ide-1)
             CALL MPI_recv(QR(i,k,j), 1, &
-            MPI_REAL4, n-1, 1115+3, COMM_filter, MPIstatus, MPIerr)
+            MPI_REAL8, n-1, 1115+3, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
@@ -807,3 +837,84 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
    print *, 'complete init_ens_pdaf'
 
 END SUBROUTINE init_ens_pdaf
+
+!! __Revision history:__
+!! * 2004-10 - Lars Nerger - Initial code
+!! *Later revisions - see svn log
+!! procedure for log-normal parameters
+REAL FUNCTION perturb_lognorm (val_in, relvar, rnd_seed)
+! FUNCTION - generate random perturbation of parameters
+           ! in a lognormal distribution
+           ! the function is written particularly for
+           ! REcoM2 model parameters in mind.
+    IMPLICIT NONE
+! Data dictionary
+    REAL(kind=8), INTENT(IN) :: val_in ! param value
+    REAL(kind=8), INTENT(IN) :: relvar ! perturbation scale
+    INTEGER, INTENT(IN), OPTIONAL :: rnd_seed(4) ! seed for random number generation
+! Local variable
+    REAL(kind=8)  :: rnd_num  ! output of the random number generation
+    REAL(kind=8)  :: logval !
+    REAL(kind=8)  ::sigma2 ! for perturbation
+    INTEGER       :: f_seed(4)
+! define seed for random number genaration
+    IF (PRESENT(rnd_seed)) THEN
+        f_seed = rnd_seed
+    ELSE
+        f_seed(1)=1000
+        f_seed(2)=2034
+        f_seed(3)=0
+        f_seed(4)=3
+    END IF
+! generate random number
+! the seed of the random number generator; the array
+! elements must be between 0 and 4095, and ISEED(4) must be
+! odd.
+    CALL DLARNV(3, f_seed, 1, rnd_num)
+! in terms of μ and σ
+! E(X)    = e^(μ + σ^2/2)
+! Var(X)  = e^(2μ + σ^2) . (e^(σ^2) - 1)
+! If the mean E and variance V for
+! the lognormal distribution are given,
+! then the corresponding μ and σ^2
+! for the normal distribution are given by
+! σ^2 = log(1+V/E^2)  ! for relative varience E = 1
+! μ = log(E) - σ^2/2
+    sigma2 = LOG(1.0D+00 + relvar*relvar)
+    logval = LOG(val_in) - 5.0D-01 * sigma2
+! Given a zero mean,
+! unit deviation normally distributed random variable x,
+! then a log-normally distributed is simply
+! y = exp(E+sigma*x)
+! evaluate the perturbed parameters
+    perturb_lognorm = EXP(logval + SQRT(sigma2) * rnd_num)
+END FUNCTION perturb_lognorm
+
+! ---------------------------------
+! procedure for normal distribution
+REAL FUNCTION perturb_norm (val_in, relvar, rnd_seed)
+! FUNCTION - generate random perturbation in a normal distribution
+    IMPLICIT NONE
+! Data dictionary
+    REAL(kind=8), INTENT(IN) :: val_in ! param value
+    REAL(kind=8), INTENT(IN) :: relvar ! perturbation scale (for 10% STD it is 0.1)
+    INTEGER, INTENT(IN), OPTIONAL :: rnd_seed(4) ! seed for random number generation
+! Local variable
+    REAL(kind=8)  :: rnd_num  ! output of the random number generation
+    INTEGER       :: f_seed(4)
+! define seed for random number genaration
+    IF (PRESENT(rnd_seed)) THEN
+        f_seed = rnd_seed
+    ELSE
+        f_seed(1)=1000
+        f_seed(2)=2034
+        f_seed(3)=0
+        f_seed(4)=3
+    END IF
+! generate random number
+! the seed of the random number generator; the array
+! elements must be between 0 and 4095, and ISEED(4) must be
+! odd.
+    CALL DLARNV(3, f_seed, 1, rnd_num)
+    perturb_norm = rnd_num
+END FUNCTION perturb_norm

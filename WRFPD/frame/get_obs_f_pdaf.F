@@ -38,17 +38,17 @@ SUBROUTINE get_obs_f_pdaf(step, dim_obs, observation)
   INTEGER, INTENT(in) :: step                 ! Current time step
   INTEGER, INTENT(in) :: dim_obs              ! Dimension of obs. vector
   REAL(8), INTENT(out)   :: observation(dim_obs) ! Observation vector
-  CHARACTER(len=2) :: stepstr          ! String for time step
+  CHARACTER(len=5) :: stepstr          ! String for time step
 
 ! !CALLING SEQUENCE:
 ! Called by: PDAF_gen_obs   (as U_get_obs_f)
 !EOP
 
-  IF (step<10) THEN
-     WRITE (stepstr, '(i1)') step
+  IF (step>=0) THEN
+      WRITE (stepstr, '(i5.2)') step
   ELSE
-     WRITE (stepstr, '(i2)') step
-  END IF  
+      WRITE (stepstr, '(i5.2)') -step
+  END IF
 
 ! *************************
 ! *** store observation ***

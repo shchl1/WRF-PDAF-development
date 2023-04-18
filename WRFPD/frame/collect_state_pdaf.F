@@ -67,25 +67,22 @@ SUBROUTINE collect_state_pdaf(dim_p, state_p)
  
    state_p((cnt1+1):(cnt1+cnt2)) = &
    reshape((head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) + &
-   head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),(jps+1):(MIN(jpe,jde-1)+1)))/2., [cnt2])
-   
+   head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),(jps+1):(MIN(jpe,jde-1)+1)))/2., [cnt2])   
 
    state_p((cnt1+cnt2+1):(cnt1+cnt2+cnt3)) = &
    reshape((head_grid%w_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) + &
    head_grid%w_2(ips:MIN(ipe,ide-1),(kps+1):kpe,jps:MIN(jpe,jde-1)))/2., [cnt3])  
     
    state_p((cnt1+cnt2+cnt3+1):(cnt1+cnt2+cnt3+cnt4)) = &
-   reshape((head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) + &
+   reshape((head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) + &   
    head_grid%ph_2(ips:MIN(ipe,ide-1),(kps+1):kpe,jps:MIN(jpe,jde-1)))/2., [cnt4])
          
    state_p((cnt1+cnt2+cnt3+cnt4+1):(cnt1+cnt2+cnt3+cnt4+cnt5)) = &
-   reshape(head_grid%t_2(ips:MIN(ipe,ide-1), &
-   kps:(kpe-1),jps:MIN(jpe,jde-1)), [cnt5])
+   reshape(head_grid%t_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)), [cnt5])
    
    DO mm = 1,3
       state_p((cnt1+cnt2+cnt3+cnt4+cnt5*mm+1):(cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*mm)) = &
-      reshape(head_grid%moist(ips:MIN(ipe,ide-1), &
-      kps:(kpe-1),jps:MIN(jpe,jde-1),m(mm)), [cnt5])
+      reshape(head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),m(mm)), [cnt5])
    ENDDO   
       
    ! ! scheme 1

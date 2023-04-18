@@ -75,7 +75,7 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   REAL(8), ALLOCATABLE :: variance_p(:)  ! model state variances
   REAL(8), ALLOCATABLE :: field(:,:,:)   ! global model field
   CHARACTER(len=2) :: ensstr          ! String for ensemble member
-  CHARACTER(len=2) :: stepstr         ! String for time step
+  CHARACTER(len=5) :: stepstr         ! String for time step
   CHARACTER(len=3) :: anastr          ! String for call type (initial, forecast, analysis)
   ! Variables for parallelization - global fields
   INTEGER :: off_p,  offset   ! Row-offset according to domain decomposition
@@ -110,9 +110,9 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
 
   ! Set string for time step
   IF (step>=0) THEN
-      WRITE (stepstr, '(i2.2)') step
+      WRITE (stepstr, '(i5.2)') step
   ELSE
-      WRITE (stepstr, '(i2.2)') -step
+      WRITE (stepstr, '(i5.2)') -step
   END IF
   out_pathf='../output_fore'//trim(stepstr)//'.nc'  
   out_patha='../output_anal'//trim(stepstr)//'.nc' 
