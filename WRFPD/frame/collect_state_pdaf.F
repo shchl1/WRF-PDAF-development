@@ -50,7 +50,7 @@ SUBROUTINE collect_state_pdaf(dim_p, state_p)
   WRITE (*,*) 'collect_state_pdaf: initialization of state vector here!'
  
   ! added by Changliang Shao on 2022.1228
-   state_p = 0.0
+   state_p = real(0,8)
 
    data m /1,2,3,4,7,8/  !'QV','QC','QR','QI','QS','QG'  
     
@@ -63,19 +63,25 @@ SUBROUTINE collect_state_pdaf(dim_p, state_p)
    
    state_p(1:cnt1) = &
    reshape((head_grid%u_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) + &
-   head_grid%u_2((ips+1):(MIN(ipe,ide-1)+1),kps:(kpe-1),jps:MIN(jpe,jde-1)))/2., [cnt1])
+   head_grid%u_2((ips+1):(MIN(ipe,ide-1)+1),kps:(kpe-1),jps:MIN(jpe,jde-1)))/real(2,8), [cnt1])
  
    state_p((cnt1+1):(cnt1+cnt2)) = &
    reshape((head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) + &
-   head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),(jps+1):(MIN(jpe,jde-1)+1)))/2., [cnt2])   
+   head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),(jps+1):(MIN(jpe,jde-1)+1)))/real(2,8), [cnt2])   
 
    state_p((cnt1+cnt2+1):(cnt1+cnt2+cnt3)) = &
    reshape((head_grid%w_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) + &
-   head_grid%w_2(ips:MIN(ipe,ide-1),(kps+1):kpe,jps:MIN(jpe,jde-1)))/2., [cnt3])  
+   head_grid%w_2(ips:MIN(ipe,ide-1),(kps+1):kpe,jps:MIN(jpe,jde-1)))/real(2,8), [cnt3])  
     
    state_p((cnt1+cnt2+cnt3+1):(cnt1+cnt2+cnt3+cnt4)) = &
    reshape((head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) + &   
-   head_grid%ph_2(ips:MIN(ipe,ide-1),(kps+1):kpe,jps:MIN(jpe,jde-1)))/2., [cnt4])
+   head_grid%ph_2(ips:MIN(ipe,ide-1),(kps+1):kpe,jps:MIN(jpe,jde-1)))/real(2,8), [cnt4])
+   
+   ! state_p((cnt1+cnt2+1):(cnt1+cnt2+cnt3)) = &
+   ! reshape(head_grid%w_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)), [cnt3])  
+    
+   ! state_p((cnt1+cnt2+cnt3+1):(cnt1+cnt2+cnt3+cnt4)) = &
+   ! reshape(head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)), [cnt4])
          
    state_p((cnt1+cnt2+cnt3+cnt4+1):(cnt1+cnt2+cnt3+cnt4+cnt5)) = &
    reshape(head_grid%t_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)), [cnt5])

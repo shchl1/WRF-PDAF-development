@@ -399,9 +399,11 @@ CONTAINS
               DO i = ips, MIN(ipe,ide-1)
 			     thisobs%id_obs_p(1,l) = l + off_fields(5)
 		         ! for ideal case on grid point
-                 ocoord_p(1,l) = real(i)
-                 ocoord_p(2,l) = real(j)
-                 ocoord_p(3,l) = real(k)
+                 ocoord_p(1,l) = real(i)*15.
+                 ocoord_p(2,l) = real(j)*15.
+                 ocoord_p(3,l) = (head_grid%ph_2(i,k,j)+head_grid%phb(i,k,j)+ &
+                     head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81*0.001*5.
+                 ! ocoord_p(3,l) = real(k)
 			     ! for real case below
                  ! ocoord_p(1,l) = head_grid%XLONG(i,j) * deg2rad
                  ! ocoord_p(2,l) = head_grid%XLAT(i,j) * deg2rad

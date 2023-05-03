@@ -11,27 +11,29 @@ MODULES =       module_driver_constants.o  \
                 module_streams.o           \
                 module_domain.o            \
 		$(LLIST) \
-		module_integrate.o         \
-                module_timing.o            \
-                module_configure.o         \
-                module_tiles.o             \
-                module_machine.o           \
-                module_nesting.o           \
-                module_wrf_error.o         \
-                module_state_description.o \
-                module_sm.o                \
-                module_io.o                \
-                module_comm_dm.o           \
-                module_comm_dm_0.o         \
-                module_comm_dm_1.o         \
-                module_comm_dm_2.o         \
-                module_comm_dm_3.o         \
-                module_comm_dm_4.o         \
-                module_comm_nesting_dm.o   \
+		        module_integrate.o  \
+		        module_timing.o  \
+				module_configure.o    \
+                module_tiles.o  \
+				module_machine.o  \
+				module_nesting.o    \
+                module_wrf_error.o  \
+				module_state_description.o  \
+				module_sm.o \
+                module_io.o  \
+				module_comm_dm.o  \
+				module_comm_dm_0.o   \
+                module_comm_dm_1.o  \
+				module_comm_dm_2.o  \
+				module_comm_dm_3.o  \
+                module_comm_dm_4.o  \
+				module_comm_nesting_dm.o   \
                 mod_parallel_pdaf.o  init_parallel_pdaf.o  mod_assimilation.o \
                 parser_mpi.o  distribute_state_pdaf.o  prepoststep_pdaf.o \
+				obs_op_pdafomi_GNSS.o  \
                 init_pdaf_parse.o  init_pdaf_info.o  obs_SOUND_U_pdafomi.o \
-				obs_SOUND_V_pdafomi.o   obs_SOUND_T_pdafomi.o \
+                obs_SOUND_V_pdafomi.o   obs_SOUND_T_pdafomi.o \
+                obs_GNSS_PW_pdafomi.o  obs_GNSS_ZTD_pdafomi.o \
                 init_ens_pdaf.o  next_observation_pdaf.o  init_pdaf.o \
                 module_dm.o  module_io_quilt.o  module_quilt_outbuf_ops.o \
 				collect_state_pdaf.o  init_n_domains_pdaf.o  init_dim_l_pdaf.o \

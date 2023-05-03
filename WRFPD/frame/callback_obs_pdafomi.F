@@ -36,6 +36,8 @@ SUBROUTINE init_dim_obs_pdafomi(step, dim_obs)
   USE obs_SOUND_U_pdafomi, ONLY: assim_SOUND_U, init_dim_obs_SOUND_U
   USE obs_SOUND_V_pdafomi, ONLY: assim_SOUND_V, init_dim_obs_SOUND_V
   USE obs_SOUND_T_pdafomi, ONLY: assim_SOUND_T, init_dim_obs_SOUND_T
+  USE obs_GNSS_PW_pdafomi, ONLY: assim_GNSS_PW, init_dim_obs_GNSS_PW
+  USE obs_GNSS_ZTD_pdafomi, ONLY: assim_GNSS_ZTD, init_dim_obs_GNSS_ZTD
 ! added by Changliang Shao on 2022.1228
   USE module_domain, ONLY : head_grid, get_ijk_from_grid 
 
@@ -49,6 +51,8 @@ SUBROUTINE init_dim_obs_pdafomi(step, dim_obs)
   INTEGER :: dim_obs_SOUND_U ! Observation dimensions
   INTEGER :: dim_obs_SOUND_V ! Observation dimensions
   INTEGER :: dim_obs_SOUND_T ! Observation dimensions
+  INTEGER :: dim_obs_GNSS_PW ! Observation dimensions
+  INTEGER :: dim_obs_GNSS_ZTD ! Observation dimensions
   
 ! added by Changliang Shao on 2022.1228  
   ! INTEGER                   :: ids, ide, jds, jde, kds, kde,    &
@@ -69,6 +73,8 @@ SUBROUTINE init_dim_obs_pdafomi(step, dim_obs)
   dim_obs_SOUND_U = 0
   dim_obs_SOUND_V = 0
   dim_obs_SOUND_T = 0
+  dim_obs_GNSS_PW = 0
+  dim_obs_GNSS_ZTD = 0
 
   ! Call observation-specific routines
   ! The routines are independent, so it is not relevant
@@ -76,8 +82,11 @@ SUBROUTINE init_dim_obs_pdafomi(step, dim_obs)
   IF (assim_SOUND_U) CALL init_dim_obs_SOUND_U(step, dim_obs_SOUND_U)
   IF (assim_SOUND_V) CALL init_dim_obs_SOUND_V(step, dim_obs_SOUND_V)
   IF (assim_SOUND_T) CALL init_dim_obs_SOUND_T(step, dim_obs_SOUND_T)
+  IF (assim_GNSS_PW) CALL init_dim_obs_GNSS_PW(step, dim_obs_GNSS_PW)
+  IF (assim_GNSS_ZTD) CALL init_dim_obs_GNSS_ZTD(step, dim_obs_GNSS_ZTD)
 
-  dim_obs = dim_obs_SOUND_U + dim_obs_SOUND_V + dim_obs_SOUND_T
+  dim_obs = dim_obs_SOUND_U + dim_obs_SOUND_V + dim_obs_SOUND_T + &
+            dim_obs_GNSS_PW + dim_obs_GNSS_ZTD
 
 END SUBROUTINE init_dim_obs_pdafomi
 
@@ -95,6 +104,8 @@ SUBROUTINE obs_op_pdafomi(step, dim_p, dim_obs, state_p, ostate)
   USE obs_SOUND_U_pdafomi, ONLY: assim_SOUND_U, obs_op_SOUND_U, init_dim_obs_SOUND_U
   USE obs_SOUND_V_pdafomi, ONLY: assim_SOUND_V, obs_op_SOUND_V, init_dim_obs_SOUND_V
   USE obs_SOUND_T_pdafomi, ONLY: assim_SOUND_T, obs_op_SOUND_T, init_dim_obs_SOUND_T
+  USE obs_GNSS_PW_pdafomi, ONLY: assim_GNSS_PW, obs_op_GNSS_PW, init_dim_obs_GNSS_PW
+  USE obs_GNSS_ZTD_pdafomi, ONLY: assim_GNSS_ZTD, obs_op_GNSS_ZTD, init_dim_obs_GNSS_ZTD
 
   IMPLICIT NONE
 
@@ -115,10 +126,11 @@ SUBROUTINE obs_op_pdafomi(step, dim_p, dim_obs, state_p, ostate)
   ! order of the calls in init_dim_obs_pdafomi
   IF (assim_SOUND_U) CALL obs_op_SOUND_U(dim_p, dim_obs, state_p, ostate)
   IF (assim_SOUND_V) CALL obs_op_SOUND_V(dim_p, dim_obs, state_p, ostate)
-  IF (assim_SOUND_T) then
-    CALL obs_op_SOUND_T(dim_p, dim_obs, state_p, ostate)
+  IF (assim_SOUND_T) CALL obs_op_SOUND_T(dim_p, dim_obs, state_p, ostate)
+  IF (assim_GNSS_PW) CALL obs_op_GNSS_PW(dim_p, dim_obs, state_p, ostate)
+  IF (assim_GNSS_ZTD) CALL obs_op_GNSS_ZTD(dim_p, dim_obs, state_p, ostate)
 	! print *, 'size(ostate), mean(ostate) = ', size(ostate), sum(ostate)/size(ostate)
-  ENDIF
+  ! ENDIF
 
 END SUBROUTINE obs_op_pdafomi
 
@@ -138,6 +150,8 @@ SUBROUTINE init_dim_obs_l_pdafomi(domain_p, step, dim_obs, dim_obs_l)
   USE obs_SOUND_U_pdafomi, ONLY: assim_SOUND_U, init_dim_obs_l_SOUND_U
   USE obs_SOUND_V_pdafomi, ONLY: assim_SOUND_V, init_dim_obs_l_SOUND_V
   USE obs_SOUND_T_pdafomi, ONLY: assim_SOUND_T, init_dim_obs_l_SOUND_T
+  USE obs_GNSS_PW_pdafomi, ONLY: assim_GNSS_PW, init_dim_obs_l_GNSS_PW
+  USE obs_GNSS_ZTD_pdafomi, ONLY: assim_GNSS_ZTD, init_dim_obs_l_GNSS_ZTD
 
   IMPLICIT NONE
 
@@ -161,6 +175,8 @@ SUBROUTINE init_dim_obs_l_pdafomi(domain_p, step, dim_obs, dim_obs_l)
   IF (assim_SOUND_U) CALL init_dim_obs_l_SOUND_U(domain_p, step, dim_obs, dim_obs_l)
   IF (assim_SOUND_V) CALL init_dim_obs_l_SOUND_V(domain_p, step, dim_obs, dim_obs_l)
   IF (assim_SOUND_T) CALL init_dim_obs_l_SOUND_T(domain_p, step, dim_obs, dim_obs_l)
+  IF (assim_GNSS_PW) CALL init_dim_obs_l_GNSS_PW(domain_p, step, dim_obs, dim_obs_l)
+  IF (assim_GNSS_ZTD) CALL init_dim_obs_l_GNSS_ZTD(domain_p, step, dim_obs, dim_obs_l)
 
 END SUBROUTINE init_dim_obs_l_pdafomi
 
@@ -179,13 +195,19 @@ SUBROUTINE localize_covar_pdafomi(dim_p, dim_obs, HP_p, HPH)
   USE obs_SOUND_U_pdafomi, ONLY: assim_SOUND_U, localize_covar_SOUND_U
   USE obs_SOUND_V_pdafomi, ONLY: assim_SOUND_V, localize_covar_SOUND_V
   USE obs_SOUND_T_pdafomi, ONLY: assim_SOUND_T, localize_covar_SOUND_T
+  USE obs_GNSS_PW_pdafomi, ONLY: assim_GNSS_PW, localize_covar_GNSS_PW
+  USE obs_GNSS_ZTD_pdafomi, ONLY: assim_GNSS_ZTD, localize_covar_GNSS_ZTD
 ! added by Changliang Shao on 2022.1228
   USE module_domain, ONLY : head_grid, get_ijk_from_grid
   
   USE mod_parallel_pdaf, &      ! Include rank of filter process
        ONLY: mype_filter
   USE mod_assimilation, &      ! Variables for assimilation
-       ONLY: deg2rad
+       ONLY: deg2rad, n_fields, off_fields, dim_fields, twin_experiment, &
+             startn, filtertype, local_range, &
+             ids, ide, jds, jde, kds, kde,    &
+             ims, ime, jms, jme, kms, kme,    &
+             ips, ipe, jps, jpe, kps, kpe
 
   IMPLICIT NONE
 
@@ -199,9 +221,6 @@ SUBROUTINE localize_covar_pdafomi(dim_p, dim_obs, HP_p, HPH)
   INTEGER :: i, j, cnt_p             ! Counters
   INTEGER :: off_nx                  ! Offset in x-direction for parallelization
   REAL(8), ALLOCATABLE :: coords_p(:,:) ! Coordinates of PE-local state vector entries
-  INTEGER                   :: ids, ide, jds, jde, kds, kde,    &
-                               ims, ime, jms, jme, kms, kme,    &
-                               ips, ipe, jps, jpe, kps, kpe
   integer                   :: k,l,mm,dimx,dimy,dimz,dimp,     &
                                cnt1,cnt2,cnt3,cnt4,cnt5
 							   
@@ -217,17 +236,6 @@ SUBROUTINE localize_covar_pdafomi(dim_p, dim_obs, HP_p, HPH)
   ! information on the model grid.
 
   ALLOCATE(coords_p(3, dim_p))
-
-  ! Get offset of local domain in global domain in x-direction
-   call get_ijk_from_grid (  head_grid ,                &
-                             ids, ide, jds, jde, kds, kde,    &
-                             ims, ime, jms, jme, kms, kme,    &
-                             ips, ipe, jps, jpe, kps, kpe   ) 
-   cnt1 = (ipe-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! U
-   cnt2 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (jpe-jps+1) ! V
-   cnt3 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) !W
-   cnt4 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps+1) * (MIN(jpe,jde-1)-jps+1) !PH
-   cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) !T
    
    l = 1   
    DO j = jps, MIN(jpe,jde-1)
@@ -323,6 +331,8 @@ SUBROUTINE localize_covar_pdafomi(dim_p, dim_obs, HP_p, HPH)
   IF (assim_SOUND_U) CALL localize_covar_SOUND_U(dim_p, dim_obs, HP_p, HPH, coords_p)
   IF (assim_SOUND_V) CALL localize_covar_SOUND_V(dim_p, dim_obs, HP_p, HPH, coords_p)
   IF (assim_SOUND_T) CALL localize_covar_SOUND_T(dim_p, dim_obs, HP_p, HPH, coords_p)
+  IF (assim_GNSS_PW) CALL localize_covar_GNSS_PW(dim_p, dim_obs, HP_p, HPH, coords_p)
+  IF (assim_GNSS_ZTD) CALL localize_covar_GNSS_ZTD(dim_p, dim_obs, HP_p, HPH, coords_p)
 
 
 ! ****************

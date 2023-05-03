@@ -54,7 +54,7 @@
 !! * 2019-06 - Lars Nerger - Initial code
 !! * Later revisions - see repository log
 !!
-MODULE obs_SOUND_U_pdafomi
+MODULE obs_GNSS_PW_pdafomi
 
   USE mod_parallel_pdaf, &
        ONLY: mype_filter    ! Rank of filter process
@@ -65,13 +65,12 @@ MODULE obs_SOUND_U_pdafomi
   SAVE
 
   ! Variables which are inputs to the module (usually set in init_pdaf)
-  LOGICAL :: assim_SOUND_U        !< Whether to assimilate this data type
-  REAL(8) :: rms_obs_SOUND_U      !< Observation error standard deviation (for constant errors)
-  CHARACTER(LEN=100) :: file_syntobs_SOUND_U, file_syntobs_SOUND_T
+  LOGICAL :: assim_GNSS_PW        !< Whether to assimilate this data type
+  REAL(8) :: rms_obs_GNSS_PW      !< Observation error standard deviation (for constant errors)
+  CHARACTER(LEN=100) :: file_syntobs_GNSS_PW
 
   ! One can declare further variables, e.g. for file names which can
   ! be use-included in init_pdaf() and initialized there.
-
 
 ! ***********************************************************************
 ! *** The following two data types are used in PDAFomi                ***
@@ -131,7 +130,6 @@ MODULE obs_SOUND_U_pdafomi
 
 !$OMP THREADPRIVATE(thisobs_l)
 
-
 !-------------------------------------------------------------------------------
 
 CONTAINS
@@ -168,7 +166,7 @@ CONTAINS
 !! can include modules from the model with 'use', e.g. for mesh information.
 !! Alternatively one could include these as subroutine arguments
 !!
-  SUBROUTINE init_dim_obs_SOUND_U(step, dim_obs)
+  SUBROUTINE init_dim_obs_GNSS_PW(step, dim_obs)
 
 ! added by Changliang Shao on 2022.1228
     USE module_domain, ONLY : head_grid, get_ijk_from_grid
@@ -190,26 +188,25 @@ CONTAINS
 ! *** Local variables ***
     INTEGER :: i, j, k, l, NROWS            ! Counters
     INTEGER :: dim_obs_p                 ! Number of process-local observations
-    REAL(8), ALLOCATABLE :: obs_p(:), obs_tmp(:)       ! PE-local observation vector
+    REAL(8), ALLOCATABLE :: obs_p(:), obs_tmp(:)        ! PE-local observation vector
     REAL(8), ALLOCATABLE :: ivar_obs_p(:)   ! PE-local inverse observation error variance
     REAL(8), ALLOCATABLE :: ocoord_p(:,:)   ! PE-local observation coordinates 
     CHARACTER(len=2) :: stepstr          ! String for time step
 ! added by Changliang Shao on 2022.1228  
-    integer                   :: startobs ! start time for obs, 0 for the first obs time. Shao on 2023.0315
     integer                   :: mm,dimx,dimy,dimz,dimp
 
     ! Template reminder - delete when implementing functionality
-    WRITE (*,*) 'init_SOUND_U_pdafomi: Initialize observations'
+    WRITE (*,*) 'init_GNSS_ZTD_pdafomi: Initialize observations'
 
 ! *********************************************
 ! *** Initialize full observation dimension ***
 ! *********************************************
-
-    IF (mype_filter==0 .and. assim_SOUND_U) &
-         WRITE (*,'(8x,a)') 'Assimilate observations - OBS_SOUND_U'
+	
+    IF (mype_filter==0 .and. assim_GNSS_PW) &
+         WRITE (*,'(8x,a)') 'Assimilate observations - OBS_GNSS_ZTD'
 
     ! Store whether to assimilate this observation type (used in routines below)
-    IF (assim_SOUND_U) thisobs%doassim = 1
+    IF (assim_GNSS_PW) thisobs%doassim = 1
 
     ! Specify type of distance computation
     ! 0: Cartesian distance in ncoord dimension
@@ -220,7 +217,7 @@ CONTAINS
 
     ! Number of coordinates used for distance computation
     ! The distance compution starts from the first row
-    thisobs%ncoord = 3
+    thisobs%ncoord = 2
 
     ! Specify the overall domain size
     ! ONLY REQUIRED FOR THISOBS%USE_GLOBAL_OBS = 0
@@ -231,8 +228,8 @@ CONTAINS
     ! Specify whether to (1) use global observations for local filters,
     ! or (0) restrict the full observations to those relevant for a process domain
     thisobs%use_global_obs = 0
-	
-	
+
+
 ! **********************************
 ! *** Read PE-local observations ***
 ! **********************************
@@ -248,15 +245,25 @@ CONTAINS
 
     ! *** Count valid observations that lie within the process sub-domain ***
 
-    dim_obs_p = dim_fields(1)
+    dim_obs_p = dim_fields(5)/(kpe-kps)
     
 
     ! *** Initialize vector of observations on the process sub-domain ***
 
-!    ALLOCATE(obs_p(dim_obs_p))
+    ! ALLOCATE(obs_p(dim_obs_p))
+	! obs_p = 0.0
 
-!    obs_p = ....
-
+    ! IF (step<10) THEN
+       ! WRITE (stepstr, '(i1)') step
+    ! ELSE
+       ! WRITE (stepstr, '(i2)') step
+    ! END IF
+	
+    ! OPEN (12, file=TRIM(file_syntobs_SOUND_T)//'obs_step'//TRIM(stepstr)//'.txt', status='old')
+	! DO i = 1, dim_obs_p
+        ! READ (12, *) obs_p(i)
+	! END DO
+    ! CLOSE (12)
 
     ! *** Initialize coordinate array of observations on the process sub-domain ***
 
@@ -264,9 +271,19 @@ CONTAINS
   ! interpolation coefficients (see below). In any case, the array must be
   ! allocated because it's an argument of PDAFomi_gather_obs called below.
 
-!    ALLOCATE(ocoord_p(thisobs%ncoord, dim_obs_p))
-
-!    ocoord_p = ....
+   ! ALLOCATE(ocoord_p(thisobs%ncoord, dim_obs_p))
+   ! l = 1
+   ! DO j = jps, MIN(jpe,jde-1)
+      ! DO k = kps, (kpe-1)
+         ! DO i = ips, MIN(ipe,ide-1)
+		    ! ocoord_p(1,l) = head_grid%XLONG(i,j) * deg2rad
+            ! ocoord_p(2,l) = head_grid%XLAT(i,j) * deg2rad
+            ! ocoord_p(3,l) = (head_grid%ph_2(i,k,j)+head_grid%phb(i,k,j)+ &
+            ! head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81
+            ! l = l + 1
+         ! ENDDO
+      ! ENDDO
+   ! ENDDO
 
     ! *** Initialize process local index array                         ***
     ! *** This array holds the information which elements of the state ***
@@ -299,9 +316,10 @@ CONTAINS
   !   replace the observation operator routines provided by PDAF-OMI by a custom
   !   observation operator, you might not need this array.
 
-!    ALLOCATE(thisobs%id_obs_p( NROWS , dim_obs_p))
-
-!    thisobs%id_obs_p = ...
+   ! ALLOCATE(thisobs%id_obs_p(1, dim_obs_p))
+   ! do i = 1,dim_obs_p
+      ! thisobs%id_obs_p(1,i) = off_fields(5)+i
+   ! enddo
 
 
 ! **********************************************************************
@@ -317,22 +335,23 @@ CONTAINS
   ! Allocate array of interpolation coefficients. As thisobs%id_obs_p, the number
   ! of rows corresponds to the number of grid points using the the interpolation
 
-!    ALLOCATE(thisobs%icoeff_p( NROWS , dim_obs_p))
+   ! NROWS = 1
+   ! ALLOCATE(thisobs%icoeff_p( NROWS , dim_obs_p))
 
   ! Ensure that the order of the coefficients is consistent with the
   ! indexing in thisobs%id_obs_p. Further ensure that the order is consistent
   ! with the assumptions used in the observation operator.
 
-!    thisobs%icoeff_p = ...
+   ! thisobs%icoeff_p = thisobs%id_obs_p
 
 
 ! ****************************************************************
 ! *** Define observation errors for process-local observations ***
 ! ****************************************************************
 
-!    ALLOCATE(ivar_obs_p(dim_obs_p))
+   ! ALLOCATE(ivar_obs_p(dim_obs_p))
     
-!    ivar_obs_p = ...
+   ! ivar_obs_p = 1 / (rms_obs_SOUND_T * rms_obs_SOUND_T)
 
 
 ! ****************************************
@@ -344,44 +363,42 @@ CONTAINS
     ! and thisobs%id_obs_p need to be allocated. Thus, if dim_obs_p=0 can 
     ! happen in your application you should explicitly handle this case.
     ! You can introduce an IF block in the initializations above:
-    !  IF dim_obs_p>0 THEN
-    !     regular allocation and initialization of obs_p, ivar_obs_p, ocoord_p
-    !  ELSE
-    !     allocate obs_p, ivar_obs_p, ocoord_p, thisobs%id_obs_p with size=1
-    !  ENDIF
-
-
-    ! This routine is generic for the case that only the observations, 
-    ! inverse variances and observation coordinates are gathered
 	
-    IF (dim_obs_p>0) THEN	
-        
+     IF (dim_obs_p>0) THEN
+	  
+        ! IF (step<10) THEN
+            ! WRITE (stepstr, '(i1)') step
+        ! ELSE
+            ! WRITE (stepstr, '(i2)') step
+        ! END IF	
+        ! OPEN (12, file=TRIM(file_syntobs_SOUND_T)//'obs_step'//TRIM(stepstr)//'.txt', status='old')
+	    ! DO i = 1, dim_obs_p
+            ! READ (12, *) obs_p(i)
+	    ! END DO
+        ! CLOSE (12)
+		
+        ! regular allocation and initialization of obs_p, ivar_obs_p, ocoord_p
         ALLOCATE(obs_p(dim_obs_p))
         obs_p = 0.0
 		
-        IF (filtertype /= 100) THEN
-		  CALL read_syn_obs_prepost(file_syntobs_SOUND_U, &
+        IF (filtertype /= 100) THEN 
+		  CALL read_syn_obs_prepost(file_syntobs_GNSS_PW, &
 		       dim_obs_p, obs_p, abs(step), 1-mype_filter)
 		ENDIF
 		  
-        NROWS = 1
+        NROWS = 4
 		ALLOCATE(thisobs%id_obs_p(NROWS, dim_obs_p))
-        ! do i = 1,dim_obs_p
-           ! thisobs%id_obs_p(1,i) = off_fields(5) + i
-        ! enddo
-		
 		ALLOCATE(ocoord_p(thisobs%ncoord, dim_obs_p))
         l = 1
         DO j = jps, MIN(jpe,jde-1)
-           DO k = kps, (kpe-1)
               DO i = ips, MIN(ipe,ide-1)
-			     thisobs%id_obs_p(1,l) = l + off_fields(1)
 		         ! for ideal case on grid point
-                 ocoord_p(1,l) = real(i)*15.
+                 ocoord_p(1,l) = real(i)*15. ! unit:km
                  ocoord_p(2,l) = real(j)*15.
-                 ocoord_p(3,l) = (head_grid%ph_2(i,k,j)+head_grid%phb(i,k,j)+ &
-                     head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81*0.001*5.
-                 ! ocoord_p(3,l) = real(k)
+			     thisobs%id_obs_p(1,l) = l + off_fields(5)
+			     thisobs%id_obs_p(2,l) = l + 1 + off_fields(5)
+			     thisobs%id_obs_p(3,l) = l + (MIN(ipe,ide-1)-ips+1)*(kpe-kps) + off_fields(5)
+			     thisobs%id_obs_p(4,l) = l + (MIN(ipe,ide-1)-ips+1)*(kpe-kps) + 1 + off_fields(5)
 			     ! for real case below
                  ! ocoord_p(1,l) = head_grid%XLONG(i,j) * deg2rad
                  ! ocoord_p(2,l) = head_grid%XLAT(i,j) * deg2rad
@@ -389,13 +406,12 @@ CONTAINS
                  ! head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81
                  l = l + 1
               ENDDO
-           ENDDO
         ENDDO
-		
-        ALLOCATE(thisobs%icoeff_p(NROWS, dim_obs_p))		
-        thisobs%icoeff_p = 1
+				
+        ALLOCATE(thisobs%icoeff_p(NROWS, dim_obs_p))
+		thisobs%icoeff_p = 1
         ALLOCATE(ivar_obs_p(dim_obs_p))
-        ivar_obs_p = 1. / (rms_obs_SOUND_U * rms_obs_SOUND_U)
+        ivar_obs_p = 1. / (rms_obs_GNSS_PW * rms_obs_GNSS_PW)
 		
      ELSE
         ! +++++ This is a dummy implementation for a single observation
@@ -418,28 +434,32 @@ CONTAINS
      ! inverse variances and observation coordinates are gathered
      CALL PDAFomi_gather_obs(thisobs, dim_obs_p, obs_p, ivar_obs_p, ocoord_p, &
                              thisobs%ncoord, local_range, dim_obs)
-
-
+	 
 ! *********************************************************
 ! *** For twin experiment: Read synthetic observations  ***
 ! *********************************************************
 
-!   IF (twin_experiment .AND. filtertype/=100) THEN
-!      CALL read_syn_obs(file_syntobs_OBSTYPE, dim_obs, thisobs%obs_f, 0, 1-mype_filter)
-!   END IF
-
+   ! IF (twin_experiment .and. filtertype /= 100 .and. mype_filter == 0) THEN
+      ! CALL read_syn_obs(file_syntobs_SOUND_T, &
+	                    ! dim_obs, thisobs%obs_f, 0, 1-mype_filter)
+      ! print *, 'size(obs_p),mean(obs_p)', &
+      ! size(obs_p),sum(obs_p)/size(obs_p)
+      ! print *, 'size(thisobs%obs_f),mean(thisobs%obs_f)', &
+      ! size(thisobs%obs_f),sum(thisobs%obs_f)/size(thisobs%obs_f)
+   ! END IF   
+  
 
 ! ********************
 ! *** Finishing up ***
 ! ********************
 
-    ! Deallocate all local arrays    
-	DEALLOCATE(obs_p, ocoord_p, ivar_obs_p)
+    ! Deallocate all local arrays
+    DEALLOCATE(obs_p, ocoord_p, ivar_obs_p)
 
     ! Arrays in THISOBS have to be deallocated after the analysis step
     ! by a call to deallocate_obs() in prepoststep_pdaf.
 
-  END SUBROUTINE init_dim_obs_SOUND_U
+  END SUBROUTINE init_dim_obs_GNSS_PW
 
 
 
@@ -455,10 +475,10 @@ CONTAINS
 !!
 !! The routine is called by all filter processes.
 !!
-  SUBROUTINE obs_op_SOUND_U(dim_p, dim_obs, state_p, ostate)
+  SUBROUTINE obs_op_GNSS_PW(dim_p, dim_obs, state_p, ostate)
 
-    USE PDAFomi, &
-         ONLY: PDAFomi_obs_op_gridpoint
+    USE obs_op_pdafomi_GNSS, &
+	     ONLY: PDAFomi_obs_op_GNSS_PW
 
     IMPLICIT NONE
 
@@ -467,10 +487,11 @@ CONTAINS
     INTEGER, INTENT(in) :: dim_obs               !< Dimension of full observed state (all observed fields)
     REAL(8), INTENT(in)    :: state_p(dim_p)        !< PE-local model state
     REAL(8), INTENT(inout) :: ostate(dim_obs)       !< Full observed state
+	INTEGER  :: nrows = 4
 
 
     ! Template reminder - delete when implementing functionality
-    ! WRITE (*,*) 'init_SOUND_U_pdafomi: Apply observation operator'
+    ! WRITE (*,*) 'init_SOUND_T_pdafomi: Apply observation operator'
 
 ! ******************************************************
 ! *** Apply observation operator H on a state vector ***
@@ -482,7 +503,7 @@ CONTAINS
        !+++  module PDAFomi_obs_op or implement your own
 
        ! Example: Observation operator for observed grid point values
-       CALL PDAFomi_obs_op_gridpoint(thisobs, state_p, ostate)
+       CALL PDAFomi_obs_op_GNSS_PW(thisobs, nrows, state_p, ostate)
 	   ! print *, 'size(thisobs%obs_f),mean(thisobs%obs_f)', &
                 ! size(thisobs%obs_f),sum(thisobs%obs_f)/size(thisobs%obs_f)
 	   ! print *, 'size(ostate),mean(ostate)', &
@@ -490,7 +511,7 @@ CONTAINS
 
     END IF
 
-  END SUBROUTINE obs_op_SOUND_U
+  END SUBROUTINE obs_op_GNSS_PW
 
 
 
@@ -510,7 +531,7 @@ CONTAINS
 !! different localization radius and localization functions
 !! for each observation type and  local analysis domain.
 !!
-  SUBROUTINE init_dim_obs_l_SOUND_U(domain_p, step, dim_obs, dim_obs_l)
+  SUBROUTINE init_dim_obs_l_GNSS_PW(domain_p, step, dim_obs, dim_obs_l)
 
     ! Include PDAFomi function
     USE PDAFomi, ONLY: PDAFomi_init_dim_obs_l
@@ -530,7 +551,7 @@ CONTAINS
 
 
     ! Template reminder - delete when implementing functionality
-    ! WRITE (*,*) 'init_SOUND_U_pdafomi: Initialize local observations'
+    ! WRITE (*,*) 'init_SOUND_T_pdafomi: Initialize local observations'
 
 ! **********************************************
 ! *** Initialize local observation dimension ***
@@ -540,11 +561,11 @@ CONTAINS
     ! (coords_l) and the localization variables, which can be different for
     ! each observation type and can be made dependent on the index DOMAIN_P.
     ! coords_l should be set in the call-back routine init_dim_l.
-
+	
     CALL PDAFomi_init_dim_obs_l(thisobs_l, thisobs, coords_l, &
          locweight, local_range, srange, dim_obs_l)
 
-  END SUBROUTINE init_dim_obs_l_SOUND_U
+  END SUBROUTINE init_dim_obs_l_GNSS_PW
 
 
 
@@ -561,7 +582,7 @@ CONTAINS
 !! different localization radius and localization functions
 !! for each observation type.
 !!
-  SUBROUTINE localize_covar_SOUND_U(dim_p, dim_obs, HP_p, HPH, coords_p)
+  SUBROUTINE localize_covar_GNSS_PW(dim_p, dim_obs, HP_p, HPH, coords_p)
 
     ! Include PDAFomi function
     USE PDAFomi, ONLY: PDAFomi_localize_covar
@@ -581,7 +602,7 @@ CONTAINS
 
 
     ! Template reminder - delete when implementing functionality
-    WRITE (*,*) 'init_SOUND_U_pdafomi: Apply covariance localization'
+    WRITE (*,*) 'init_GNSS_PW_pdafomi: Apply covariance localization'
 
 ! *************************************
 ! *** Apply covariance localization ***
@@ -593,6 +614,6 @@ CONTAINS
     CALL PDAFomi_localize_covar(thisobs, dim_p, locweight, local_range, srange, &
          coords_p, HP_p, HPH)
 
-  END SUBROUTINE localize_covar_SOUND_U
+  END SUBROUTINE localize_covar_GNSS_PW
 
-END MODULE obs_SOUND_U_pdafomi
+END MODULE obs_GNSS_PW_pdafomi

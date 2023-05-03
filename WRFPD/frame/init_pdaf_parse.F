@@ -30,6 +30,10 @@ SUBROUTINE init_pdaf_parse()
        ONLY: assim_SOUND_V, rms_obs_SOUND_V
   USE obs_SOUND_T_pdafomi, &  ! Variables for observation type SOUND_t
        ONLY: assim_SOUND_T, rms_obs_SOUND_T
+  USE obs_GNSS_PW_pdafomi, &  ! Variables for observation type SOUND_v
+       ONLY: assim_GNSS_PW, rms_obs_GNSS_PW
+  USE obs_GNSS_ZTD_pdafomi, &  ! Variables for observation type SOUND_t
+       ONLY: assim_GNSS_ZTD, rms_obs_GNSS_ZTD
 
   IMPLICIT NONE
 
@@ -70,6 +74,14 @@ SUBROUTINE init_pdaf_parse()
   CALL parse(handle, assim_SOUND_T)
   handle = 'rms_obs_SOUND_T'         ! Assumed uniform RMS error of observations OBSTYPE
   CALL parse(handle, rms_obs_SOUND_T)
+  handle = 'assim_GNSS_PW'           ! Whether to assimilation observation type OBSTYPE
+  CALL parse(handle, assim_GNSS_PW)
+  handle = 'rms_obs_GNSS_PW'         ! Assumed uniform RMS error of observations OBSTYPE
+  CALL parse(handle, rms_obs_GNSS_PW)
+  handle = 'assim_GNSS_ZTD'           ! Whether to assimilation observation type OBSTYPE
+  CALL parse(handle, assim_GNSS_ZTD)
+  handle = 'rms_obs_GNSS_ZTD'         ! Assumed uniform RMS error of observations OBSTYPE
+  CALL parse(handle, rms_obs_GNSS_ZTD)
 
   ! General settings for PDAF
   handle = 'screen'                  ! set verbosity of PDAF

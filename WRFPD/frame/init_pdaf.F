@@ -39,10 +39,18 @@ SUBROUTINE init_pdaf()
        ONLY: assim_SOUND_V, rms_obs_SOUND_V, file_syntobs_SOUND_V
   USE obs_SOUND_T_pdafomi, &      ! Variables for observation SOUND_T
        ONLY: assim_SOUND_T, rms_obs_SOUND_T, file_syntobs_SOUND_T
+  USE obs_GNSS_PW_pdafomi, &      ! Variables for observation GNSS_PW
+       ONLY: assim_GNSS_PW, rms_obs_GNSS_PW, file_syntobs_GNSS_PW
+  USE obs_GNSS_ZTD_pdafomi, &      ! Variables for observation GNSS_ZTD
+       ONLY: assim_GNSS_ZTD, rms_obs_GNSS_ZTD, file_syntobs_GNSS_ZTD
 !   USE mod_model, &                ! Model variables
 !        ONLY: nx, ny
 ! added by Changliang Shao on 2022.1228
   USE module_domain, ONLY : head_grid, get_ijk_from_grid 
+! if nested define as below. id is the nest number
+     ! INTEGER, INTENT(IN) :: id
+     ! TYPE(domain), POINTER :: grid
+     ! CALL find_grid_by_id( id, head_grid, grid )
 
   IMPLICIT NONE
   
@@ -224,19 +232,25 @@ SUBROUTINE init_pdaf()
 ! *** Forecast length (time interval between analysis steps) ***
   delt_obs = 60      ! This should be set according to the data availability
   ! Added by Changliang Shao on 2022.1228
-  ntimes = 144        ! times for assim. 
-  startn = 1        ! times for start assim. 0 for initialization to generate ensemble
-                    ! forecast at least 1 step. assimilation start from 1, no assimilation for 0
+  ntimes = 0        ! times for assim. 0 for first step to pert. maxtime 144
+  startn = 0        ! times for start assim. 0 for initialization to generate ensemble
+                    ! perturbation and ensemble forecast at least 1 step (from 1).
+					! no perturbation for 0. 
+					! assimilation start from 1, no assimilation for 0
 
 ! *** Which observation type to assimilate
   assim_SOUND_T = .false.
   assim_SOUND_U = .false.
   assim_SOUND_V = .false.
+  assim_GNSS_PW = .false.
+  assim_GNSS_ZTD = .false.
 
 ! *** specifications for observations ***
   rms_obs_SOUND_T = 0.1    ! Observation error standard deviation
   rms_obs_SOUND_U = 0.1    ! Observation error standard deviation
   rms_obs_SOUND_V = 0.1    ! Observation error standard deviation
+  rms_obs_GNSS_PW = 0.1    ! Observation error standard deviation
+  rms_obs_GNSS_ZTD = 0.1    ! Observation error standard deviation
 
 ! *** Localization settings
   locweight = 0     ! Type of localizating weighting # locweight = 2 
@@ -261,6 +275,8 @@ SUBROUTINE init_pdaf()
   file_syntobs_SOUND_T = '../obsT'//trim(filestr)//'.nc'
   file_syntobs_SOUND_U = '../obsU'//trim(filestr)//'.nc'
   file_syntobs_SOUND_V = '../obsV'//trim(filestr)//'.nc'
+  file_syntobs_GNSS_PW = '../obsPW'//trim(filestr)//'.nc'
+  file_syntobs_GNSS_ZTD = '../obsZTD'//trim(filestr)//'.nc'
 
 ! ***********************************
 ! *** Some optional functionality ***
@@ -320,6 +336,10 @@ SUBROUTINE init_pdaf()
       IF (assim_SOUND_U) CALL init_file_syn_obs(dim_fields(1), file_syntobs_SOUND_U, 1)
       IF (assim_SOUND_V) CALL init_file_syn_obs(dim_fields(2), file_syntobs_SOUND_V, 1)
       IF (assim_SOUND_T) CALL init_file_syn_obs(dim_fields(5), file_syntobs_SOUND_T, 1)
+      IF (assim_GNSS_PW) CALL init_file_syn_obs(dim_fields(5)/(kpe-kps), &
+	                                            file_syntobs_GNSS_PW, 1)
+      IF (assim_GNSS_ZTD) CALL init_file_syn_obs(dim_fields(5)/(kpe-kps), &
+	                                             file_syntobs_GNSS_ZTD, 1)
   END IF
 
 ! ************************************************************************
@@ -336,10 +356,10 @@ SUBROUTINE init_pdaf()
         ! +---------+(:,2)
            ! (2,2)
   
-  lim_coords(1,1) = real(ips)
-  lim_coords(1,2) = real(MIN(ipe,ide-1)) !
-  lim_coords(2,1) = real(MIN(jpe,jde-1)) !
-  lim_coords(2,2) = real(jps)
+  lim_coords(1,1) = real(ips)*15.
+  lim_coords(1,2) = real(MIN(ipe,ide-1))*15. !
+  lim_coords(2,1) = real(MIN(jpe,jde-1))*15. !
+  lim_coords(2,2) = real(jps)*15.
   
   CALL PDAFomi_set_domain_limits(lim_coords)
   

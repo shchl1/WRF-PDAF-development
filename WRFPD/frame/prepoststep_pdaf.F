@@ -42,6 +42,8 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   USE obs_SOUND_T_pdafomi, ONLY : assim_SOUND_T, file_syntobs_SOUND_T
   USE obs_SOUND_U_pdafomi, ONLY : assim_SOUND_U, file_syntobs_SOUND_U
   USE obs_SOUND_V_pdafomi, ONLY : assim_SOUND_V, file_syntobs_SOUND_V
+  USE obs_GNSS_PW_pdafomi, ONLY : assim_GNSS_PW, file_syntobs_GNSS_PW
+  USE obs_GNSS_ZTD_pdafomi, ONLY : assim_GNSS_ZTD, file_syntobs_GNSS_ZTD
 
   IMPLICIT NONE
 
@@ -114,8 +116,8 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   ELSE
       WRITE (stepstr, '(i5.2)') -step
   END IF
-  out_pathf='../output_fore'//trim(stepstr)//'.nc'  
-  out_patha='../output_anal'//trim(stepstr)//'.nc' 
+  ! out_pathf='../output_fore'//trim(stepstr)//'.nc'  
+  ! out_patha='../output_anal'//trim(stepstr)//'.nc' 
   
   IF (mype_filter == 0) THEN
      IF (firsttime) THEN

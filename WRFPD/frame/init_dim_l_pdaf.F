@@ -60,28 +60,29 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
   ! D1=（E1-S1+1）= MIN(ipe,ide-1)-ips+1
   ! d(i,k,j): 
   ! 1+(i-S1)+(k-S2)*D1+(j-S3)*D2 = domain_p 
-  ! cnt3 = (MIN(ipe,ide-1)-ips+1)*(kpe-kps)*(MIN(jpe,jde-1)-jps+1)
-  ! cnt2 = (MIN(ipe,ide-1)-ips+1)*(kpe-kps)
-  ! cnt1 = MIN(ipe,ide-1)-ips+1
-  ! IF (1 <= domain_p .and. domain_p <= cnt1) THEN
-      ! i = domain_p + ips -1
-      ! k = 1
-      ! j = 1
-  ! ELSEIF (cnt1 < domain_p .and. domain_p <= cnt2) THEN 
-      ! k = CEILING(REAL(domain_p)/REAL(cnt1)) + kps - 1
-      ! i = domain_p - (k-kps)*cnt1 + ips - 1
-      ! j = 1
-  ! ELSEIF (cnt2 < domain_p .and. domain_p <= cnt3) THEN  
-      ! j = CEILING(REAL(domain_p)/REAL(cnt2)) + jps - 1 
-      ! k = CEILING(REAL(domain_p-(j-jps)*cnt2)/REAL(cnt1)) + kps - 1
-      ! i = domain_p - (j-jps)*cnt2 - (k-kps)*cnt1 + ips - 1
-  ! ELSE
-      ! print *, 'domain_p loop error, domain_p= ', domain_p
-  ! ENDIF
-  ! ! ! for real case below
-  ! coords_l(1) = real(i)
-  ! coords_l(2) = real(j)
-  ! coords_l(3) = real(k)
+  cnt3 = (MIN(ipe,ide-1)-ips+1)*(kpe-kps)*(MIN(jpe,jde-1)-jps+1)
+  cnt2 = (MIN(ipe,ide-1)-ips+1)*(kpe-kps)
+  cnt1 = MIN(ipe,ide-1)-ips+1
+  IF (1 <= domain_p .and. domain_p <= cnt1) THEN
+      i = domain_p + ips -1
+      k = kps
+      j = jps
+  ELSEIF (cnt1 < domain_p .and. domain_p <= cnt2) THEN 
+      k = CEILING(REAL(domain_p)/REAL(cnt1)) + kps - 1
+      i = domain_p - (k-kps)*cnt1 + ips - 1
+      j = jps
+  ELSEIF (cnt2 < domain_p .and. domain_p <= cnt3) THEN  
+      j = CEILING(REAL(domain_p)/REAL(cnt2)) + jps - 1 
+      k = CEILING(REAL(domain_p-(j-jps)*cnt2)/REAL(cnt1)) + kps - 1
+      i = domain_p - (j-jps)*cnt2 - (k-kps)*cnt1 + ips - 1
+  ELSE
+      print *, 'domain_p loop error, domain_p= ', domain_p
+  ENDIF
+  ! ! for ideal case below
+  coords_l(1) = real(i)*15.
+  coords_l(2) = real(j)*15.
+  coords_l(3) = (head_grid%ph_2(i,k,j)+head_grid%phb(i,k,j)+ &
+       head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81*0.001*5.
   
   ! print *, 'domain_p= ', domain_p, 'i,j,k= ', i, j, k
   ! for real case below
@@ -90,21 +91,23 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
   ! coords_l(3) = (head_grid%ph_2(i,k,j)+head_grid%phb(i,k,j)+ &
   ! ! head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81
   
-  l = 1
-  loop_j: DO j = jps, MIN(jpe,jde-1)
-     DO k = kps, (kpe-1)
-        DO i = ips, MIN(ipe,ide-1)
-           IF ( l == domain_p ) THEN
-              ! for ideal case on grid point
-              coords_l(1) = real(i)
-              coords_l(2) = real(j)
-              coords_l(3) = real(k)
-              EXIT loop_j
-           ENDIF		   
-           l = l + 1
-        ENDDO
-     ENDDO
-  ENDDO loop_j
+  ! l = 1
+  ! loop_j: DO j = jps, MIN(jpe,jde-1)
+     ! DO k = kps, (kpe-1)
+        ! DO i = ips, MIN(ipe,ide-1)
+           ! IF ( l == domain_p ) THEN
+              ! ! for ideal case on grid point
+              ! coords_l(1) = real(i)*15.
+              ! coords_l(2) = real(j)*15.
+              ! coords_l(3) = (head_grid%ph_2(i,k,j)+head_grid%phb(i,k,j)+ &
+                 ! head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81*0.001*5.
+              ! ! coords_l(3) = real(k)
+              ! EXIT loop_j
+           ! ENDIF		   
+           ! l = l + 1
+        ! ENDDO
+     ! ENDDO
+  ! ENDDO loop_j
     
   ! cnt1 = (ipe-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1)
   ! cnt2 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (jpe-jps+1)

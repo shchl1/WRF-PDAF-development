@@ -82,7 +82,7 @@ module_integrate.o: \
 		module_configure.o \
 		$(LLIST) \
 		module_cpl.o \
-                module_dm.o \
+        module_dm.o \
 		$(ESMF_MOD_DEPENDENCE) \
 		../frame/mod_parallel_pdaf.o \
 		../frame/init_parallel_pdaf.o \
@@ -97,6 +97,9 @@ module_integrate.o: \
 		../frame/obs_SOUND_U_pdafomi.o \
 		../frame/obs_SOUND_V_pdafomi.o \
 		../frame/obs_SOUND_T_pdafomi.o \
+		../frame/obs_op_pdafomi_GNSS.o \
+		../frame/obs_GNSS_PW_pdafomi.o \
+		../frame/obs_GNSS_ZTD_pdafomi.o \
 		../frame/callback_obs_pdafomi.o \
 		../frame/prepoststep_pdaf.o \
 		../frame/assimilate_pdaf.o \
@@ -1359,9 +1362,12 @@ module_wrf_top.o: ../frame/module_machine.o \
 				  ../frame/init_dim_l_pdaf.o \
 				  ../frame/g2l_state_pdaf.o \
 				  ../frame/l2g_state_pdaf.o \
+		          ../frame/obs_op_pdafomi_GNSS.o \
 				  ../frame/obs_SOUND_U_pdafomi.o \
 				  ../frame/obs_SOUND_V_pdafomi.o \
 				  ../frame/obs_SOUND_T_pdafomi.o \
+	              ../frame/obs_GNSS_PW_pdafomi.o \
+		          ../frame/obs_GNSS_ZTD_pdafomi.o \
 				  ../frame/callback_obs_pdafomi.o \
 				  ../frame/prepoststep_pdaf.o \
 				  ../frame/assimilate_pdaf.o \
@@ -1375,4 +1381,3 @@ module_wrf_top.o: ../frame/module_machine.o \
                   $(ESMF_MOD_DEPENDENCE)
 
 # End of DEPENDENCIES for main
-
