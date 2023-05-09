@@ -55,7 +55,7 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
   ! Template reminder - delete when implementing functionality
   WRITE (*,*) 'distribute_state_pdaf: initialization of model fields here!'
   
-  data m /1,2,3,4,7,8/  !'QV','QC','QR','QI','QS','QG'  
+  data m /2,3,4,5,8,9/  !'QV','QC','QR','QI','QS','QG'  
 				
    ! scheme 2   			
    cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! T
@@ -295,9 +295,9 @@ SUBROUTINE distribute_state_pdaf(dim_p, state_p)
 	 sum(head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)))/&
 	 size(head_grid%ph_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)))
    print *, maxval(head_grid%t_2),minval(head_grid%t_2),sum(head_grid%t_2),sum(head_grid%t_2)/size(head_grid%t_2)
-   print *, maxval(head_grid%moist(:,:,:,1)),minval(head_grid%moist(:,:,:,1)),sum(head_grid%moist(:,:,:,1))
    print *, maxval(head_grid%moist(:,:,:,2)),minval(head_grid%moist(:,:,:,2)),sum(head_grid%moist(:,:,:,2))
    print *, maxval(head_grid%moist(:,:,:,3)),minval(head_grid%moist(:,:,:,3)),sum(head_grid%moist(:,:,:,3))
+   print *, maxval(head_grid%moist(:,:,:,4)),minval(head_grid%moist(:,:,:,4)),sum(head_grid%moist(:,:,:,4))
 ! endif   
 
   WRITE (*,*) 'distribute_state_pdaf: DONE!'

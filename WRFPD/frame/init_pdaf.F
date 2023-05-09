@@ -128,7 +128,7 @@ SUBROUTINE init_pdaf()
                cnt1+cnt2+cnt3+cnt4+cnt5*3/)
   dim_state_p = cnt1+cnt2+cnt3+cnt4+cnt5*4
   nam_fields = ['U','V','W','PH','T','QV','QC','QR']  
-  data m /1,2,3,4,7,8/  !'QV','QC','QR','QI','QS','QG'
+  data m /2,3,4,5,8,9/  !'QV','QC','QR','QI','QS','QG'
   
 
 ! **********************************************************

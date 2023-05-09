@@ -143,11 +143,11 @@ CONTAINS
 			       const  = (head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j)- &
 				       head_grid%ph_2(i,k,j)-head_grid%phb(i,k,j))/9.81/a_ew
                    part   = (head_grid%p(i,k,j)+head_grid%pb(i,k,j))* &
-				       head_grid%moist(i,k,j,1)/(1.0+head_grid%moist(i,k,j,1))/ &
-					   ((head_grid%t_2(i,k,j)+300)*((head_grid%p(i,k,j)+head_grid%pb(i,k,j))/ &
+				       head_grid%moist(i,k,j,2)/(1.0+head_grid%moist(i,k,j,2))/ &
+					   ((head_grid%t_2(i,k,j)+300.)*((head_grid%p(i,k,j)+head_grid%pb(i,k,j))/ &
 					   100000.)**kappa)
                    term1  = part * const * wdk1
-                   term2  = part * const * wdk2 / (head_grid%t_2(i,k,j)+300)
+                   term2  = part * const * wdk2 / (head_grid%t_2(i,k,j)+300.)
                    wzd    = wzd + term1 + term2
 			   ENDDO
 			   ! Hydrostatic delay (Saastamoinen 1972):
@@ -262,7 +262,7 @@ CONTAINS
 		       DO k = kps, kpe-1
 			       pw = pw + (head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j)- &
 				       head_grid%ph_2(i,k,j)-head_grid%phb(i,k,j))/9.81* &
-					   (head_grid%moist(i,k,j,1)/(1.0+head_grid%moist(i,k,j,1))* &
+					   (head_grid%moist(i,k,j,2)/(1.0+head_grid%moist(i,k,j,2))* &
 					   head_grid%rho(i,k,j))
 			   ENDDO
 			   ! To convert the unit of PW to cm:

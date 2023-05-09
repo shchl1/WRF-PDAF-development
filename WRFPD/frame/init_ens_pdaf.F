@@ -98,7 +98,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 ! **********************
 
   ! added by Changliang Shao on 2022.1228
-  data m /1,2,3,4,7,8/  !'QV','QC','QR','QI','QS','QG'  
+  data m /2,3,4,5,8,9/  !'QV','QC','QR','QI','QS','QG'  
   call get_ijk_from_grid (  head_grid ,                &
                             ids, ide, jds, jde, kds, kde,    &
                             ims, ime, jms, jme, kms, kme,    &
