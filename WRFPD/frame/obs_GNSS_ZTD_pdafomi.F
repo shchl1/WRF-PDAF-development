@@ -56,6 +56,14 @@
 !!
 MODULE obs_GNSS_ZTD_pdafomi
 
+! added by Changliang Shao on 2022.1228
+  USE module_domain, ONLY : head_grid
+  USE mod_assimilation, &      ! Assimilation variables
+       ONLY: deg2rad, n_fields, off_fields, dim_fields, twin_experiment, &
+             startn, filtertype, local_range, &
+             ids, ide, jds, jde, kds, kde,    &
+             ims, ime, jms, jme, kms, kme,    &
+             ips, ipe, jps, jpe, kps, kpe
   USE mod_parallel_pdaf, &
        ONLY: mype_filter    ! Rank of filter process
   USE PDAFomi, &
@@ -168,14 +176,6 @@ CONTAINS
 !!
   SUBROUTINE init_dim_obs_GNSS_ZTD(step, dim_obs)
 
-! added by Changliang Shao on 2022.1228
-    USE module_domain, ONLY : head_grid, get_ijk_from_grid
-    USE mod_assimilation, &      ! Assimilation variables
-         ONLY: deg2rad, n_fields, off_fields, dim_fields, twin_experiment, &
-               startn, filtertype, local_range, &
-               ids, ide, jds, jde, kds, kde,    &
-               ims, ime, jms, jme, kms, kme,    &
-               ips, ipe, jps, jpe, kps, kpe
     USE PDAFomi, &
          ONLY: PDAFomi_gather_obs
 
@@ -186,14 +186,14 @@ CONTAINS
     INTEGER, INTENT(inout) :: dim_obs    !< Dimension of full observation vector
 
 ! *** Local variables ***
-    INTEGER :: i, j, k, l, NROWS            ! Counters
-    INTEGER :: dim_obs_p                 ! Number of process-local observations
+    INTEGER :: i, j, k, l, n, NROWS            ! Counters
+    INTEGER :: dim_obs_p, ite, jte          ! Number of process-local observations
     REAL(8), ALLOCATABLE :: obs_p(:), obs_tmp(:)        ! PE-local observation vector
     REAL(8), ALLOCATABLE :: ivar_obs_p(:)   ! PE-local inverse observation error variance
     REAL(8), ALLOCATABLE :: ocoord_p(:,:)   ! PE-local observation coordinates 
     CHARACTER(len=2) :: stepstr          ! String for time step
 ! added by Changliang Shao on 2022.1228  
-    integer                   :: mm,dimx,dimy,dimz,dimp
+    integer                   :: mm,cnt1,cnt2,cnt3,dimp
 
     ! Template reminder - delete when implementing functionality
     WRITE (*,*) 'init_GNSS_ZTD_pdafomi: Initialize observations'
@@ -378,6 +378,13 @@ CONTAINS
         ! CLOSE (12)
 		
         ! regular allocation and initialization of obs_p, ivar_obs_p, ocoord_p
+		
+	    ite = MIN(ipe,ide-1)
+	    jte = MIN(jpe,jde-1)
+        cnt3 = (ite-ips+1)*(kpe-kps)*(jte-jps+1)
+        cnt2 = (ite-ips+1)*(kpe-kps)
+        cnt1 = ite-ips+1
+		
         ALLOCATE(obs_p(dim_obs_p))
         obs_p = 0.0
 		
@@ -386,26 +393,54 @@ CONTAINS
 		       dim_obs_p, obs_p, abs(step), 1-mype_filter)
 		ENDIF
 		  
-        NROWS = 4
+        NROWS = 4 * (kpe - kps) + 1
 		ALLOCATE(thisobs%id_obs_p(NROWS, dim_obs_p))
 		ALLOCATE(ocoord_p(thisobs%ncoord, dim_obs_p))
-        l = 1
-        DO j = jps, MIN(jpe,jde-1)
-              DO i = ips, MIN(ipe,ide-1)
-		         ! for ideal case on grid point
-                 ocoord_p(1,l) = real(i)*15. ! unit:km
-                 ocoord_p(2,l) = real(j)*15.
-			     thisobs%id_obs_p(1,l) = l + off_fields(5)
-			     thisobs%id_obs_p(2,l) = l + 1 + off_fields(5)
-			     thisobs%id_obs_p(3,l) = l + (MIN(ipe,ide-1)-ips+1)*(kpe-kps) + off_fields(5)
-			     thisobs%id_obs_p(4,l) = l + (MIN(ipe,ide-1)-ips+1)*(kpe-kps) + 1 + off_fields(5)
+		ocoord_p = 0.
+        ! l = 1
+        DO j = jps, jte
+		 DO k = kps, kpe-1
+          DO i = ips, ite
+			l = i-ips+1 + cnt1*(j-jps)
+			n = i-ips+1 + cnt1*(k-1) + cnt2*(j-jps)
+		    ! for ideal case on grid point
+			! if (i == 100 .and. j == 100 ) then
+            ocoord_p(1,l) = real(i)*15. ! unit:km
+            ocoord_p(2,l) = real(j)*15.	
+			! endif
+			thisobs%id_obs_p(k,l) = n + off_fields(14) ! dh
+			thisobs%id_obs_p(k+(kpe-kps)*1,l) = n + off_fields(5) ! t
+			thisobs%id_obs_p(k+(kpe-kps)*2,l) = n + off_fields(6) ! qv
+			thisobs%id_obs_p(k+(kpe-kps)*3,l) = n + off_fields(12) ! p
+			thisobs%id_obs_p((kpe-kps)*4+1,l) = l + off_fields(15) ! psfc
+			! thisobs%id_obs_p(1,l) = l + off_fields(5)
+			! thisobs%id_obs_p(2,l) = l + 1 + off_fields(5)
+			! thisobs%id_obs_p(3,l) = l + (MIN(ipe,ide-1)-ips+1)*(kpe-kps) + off_fields(5)
+			! thisobs%id_obs_p(4,l) = l + (MIN(ipe,ide-1)-ips+1)*(kpe-kps) + 1 + off_fields(5)
+		    ! if (l <= cnt1) then
+			  ! do k = kps, kpe-1
+			    ! thisobs%id_obs_p(k,l) = l + cnt1*(k-1) + off_fields(11) ! dh
+			    ! thisobs%id_obs_p(k+(kpe-kps)*1,l) = l + cnt1*(k-1) + off_fields(5) ! t
+			    ! thisobs%id_obs_p(k+(kpe-kps)*2,l) = l + cnt1*(k-1) + off_fields(6) ! qv
+			    ! thisobs%id_obs_p(k+(kpe-kps)*3,l) = l + cnt1*(k-1) + off_fields(9) ! p
+			  ! enddo
+			! else			
+			  ! do k = kps, kpe-1     
+			    ! thisobs%id_obs_p(k,l) = l + cnt2 + cnt1*(k-1) + off_fields(11) ! dh
+			    ! thisobs%id_obs_p(k+(kpe-kps)*1,l) = l + cnt2 + cnt1*(k-1) + off_fields(5) ! t
+			    ! thisobs%id_obs_p(k+(kpe-kps)*2,l) = l + cnt2 + cnt1*(k-1) + off_fields(6) ! qv				 
+			    ! thisobs%id_obs_p(k+(kpe-kps)*3,l) = l + cnt2 + cnt1*(k-1) + off_fields(9) ! p
+			  ! enddo
+			! endif
+			! thisobs%id_obs_p((kpe-kps)*4+1,l) = l + off_fields(12) ! psfc
 			     ! for real case below
                  ! ocoord_p(1,l) = head_grid%XLONG(i,j) * deg2rad
                  ! ocoord_p(2,l) = head_grid%XLAT(i,j) * deg2rad
                  ! ocoord_p(3,l) = (head_grid%ph_2(i,k,j)+head_grid%phb(i,k,j)+ &
                  ! head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81
-                 l = l + 1
-              ENDDO
+            ! l = l + 1
+          ENDDO
+		 ENDDO
         ENDDO
 				
         ALLOCATE(thisobs%icoeff_p(NROWS, dim_obs_p))
@@ -487,7 +522,7 @@ CONTAINS
     INTEGER, INTENT(in) :: dim_obs               !< Dimension of full observed state (all observed fields)
     REAL(8), INTENT(in)    :: state_p(dim_p)        !< PE-local model state
     REAL(8), INTENT(inout) :: ostate(dim_obs)       !< Full observed state
-	INTEGER   :: nrows = 4
+	INTEGER   :: nrows
 
 
     ! Template reminder - delete when implementing functionality
@@ -501,13 +536,15 @@ CONTAINS
     
        !+++  Choose suitable observation operator from the
        !+++  module PDAFomi_obs_op or implement your own
-
+       nrows = 4 * (kpe - kps) + 1
        ! Example: Observation operator for observed grid point values
        CALL PDAFomi_obs_op_GNSS_ZTD(thisobs, nrows, state_p, ostate)
 	   ! print *, 'size(thisobs%obs_f),mean(thisobs%obs_f)', &
                 ! size(thisobs%obs_f),sum(thisobs%obs_f)/size(thisobs%obs_f)
 	   ! print *, 'size(ostate),mean(ostate)', &
                 ! size(ostate),sum(ostate)/size(ostate)
+	   print *, 'thisobs%obs_f(10), ostate(10)', &
+                thisobs%obs_f(10), ostate(10)
 
     END IF
 

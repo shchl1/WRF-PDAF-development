@@ -139,7 +139,7 @@ CONTAINS
 
 ! *** local variables ***
     CHARACTER(len=32) :: string
-    REAL :: parsed_real
+    REAL(8) :: parsed_real
     LOGICAL :: modified
 
 ! *** Initialize ***

@@ -28,17 +28,20 @@ SUBROUTINE init_pdaf()
        ONLY: dim_state_p, dim_state, screen, filtertype, subtype, dim_ens, &
        incremental, covartype, type_forget, forget, filename, &
        rank_analysis_enkf, locweight, local_range, srange, &
-       type_trans, type_sqrt, delt_obs, startn, ntimes, &
+       type_trans, type_sqrt, delt_obs, startn, ntimes, local_rangev, &
        n_fields, off_fields, dim_fields, nam_fields, deg2rad, &
 	   ids, ide, jds, jde, kds, kde,    &
 	   ims, ime, jms, jme, kms, kme,    &
-	   ips, ipe, jps, jpe, kps, kpe
+	   ips, ipe, jps, jpe, kps, kpe,    &
+	   sp_experiment, delt_omb, spe_x, spe_y, spe_z
   USE obs_SOUND_U_pdafomi, &      ! Variables for observation SOUND_U
        ONLY: assim_SOUND_U, rms_obs_SOUND_U, file_syntobs_SOUND_U
   USE obs_SOUND_V_pdafomi, &      ! Variables for observation SOUND_V
        ONLY: assim_SOUND_V, rms_obs_SOUND_V, file_syntobs_SOUND_V
   USE obs_SOUND_T_pdafomi, &      ! Variables for observation SOUND_T
        ONLY: assim_SOUND_T, rms_obs_SOUND_T, file_syntobs_SOUND_T
+  USE obs_SOUND_PH_pdafomi, &      ! Variables for observation SOUND_T
+       ONLY: assim_SOUND_PH, rms_obs_SOUND_PH, file_syntobs_SOUND_PH
   USE obs_GNSS_PW_pdafomi, &      ! Variables for observation GNSS_PW
        ONLY: assim_GNSS_PW, rms_obs_GNSS_PW, file_syntobs_GNSS_PW
   USE obs_GNSS_ZTD_pdafomi, &      ! Variables for observation GNSS_ZTD
@@ -56,7 +59,7 @@ SUBROUTINE init_pdaf()
   
 ! *** Local variables ***
   INTEGER :: filter_param_i(7) ! Integer parameter array for filter
-  REAL(8) :: filter_param_r(3) ! Real parameter array for filter
+  REAL(8) :: filter_param_r(3) ! REAL(8) parameter array for filter
   INTEGER :: status_pdaf       ! PDAF status flag
   INTEGER :: doexit, steps     ! Not used in this implementation
   REAL(8) :: timenow           ! Not used in this implementation
@@ -67,7 +70,7 @@ SUBROUTINE init_pdaf()
                               !< geographic range: longitude (-pi, pi), latitude (-pi/2, pi/2)
                               !< Cartesian range: (x) coordinate grows from left to right; (y) from bottom to top  
   INTEGER                   :: i,j,k,mm,dimx,dimy,dimz,dimp,    &
-                               cnt1,cnt2,cnt3,cnt4,cnt5,ierr
+                               cnt1,cnt2,cnt3,cnt4,cnt5,cnt11,cnt12,ierr
   integer,dimension(6) :: m
 ! *** External subroutines ***
   EXTERNAL :: init_ens_pdaf            ! Ensemble initialization
@@ -111,23 +114,27 @@ SUBROUTINE init_pdaf()
   ! cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) !T
   
   ! scheme 2 grid a
-  dim_state = (ide-ids)*(kde-kds)*(jde-jds)*8     ! U,V,W,PH,T,QV,QC,QR,QI,QS,QG
+  dim_state = (ide-ids)*(kde-kds)*(jde-jds)*11 + (ide-ids)*(jde-jds)     ! U,V,W,PH,T,QV,QC,QR,QI,QS,QG
   cnt5 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) !T
   cnt1 = cnt5 ! U
   cnt2 = cnt5 ! V
   cnt3 = cnt5 ! W
   cnt4 = cnt5 ! PH
+  cnt12 = (MIN(ipe,ide-1)-ips+1) * (MIN(jpe,jde-1)-jps+1) ! psfc
   ! cnt5 * 6 'QV','QC','QR','QI','QS','QG'
-  n_fields = 8
+  n_fields = 15
   allocate(off_fields(n_fields))
   allocate(dim_fields(n_fields))
   allocate(nam_fields(n_fields))
-  dim_fields = (/cnt1,cnt2,cnt3,cnt4,cnt5,cnt5,cnt5,cnt5/)
+  dim_fields = (/cnt1,cnt2,cnt3,cnt4,cnt5,cnt5,cnt5,cnt5,cnt5,cnt5,cnt5,cnt5,cnt5,cnt5,cnt12/)
   off_fields = (/0,cnt1,cnt1+cnt2,cnt1+cnt2+cnt3,cnt1+cnt2+cnt3+cnt4,    &
                cnt1+cnt2+cnt3+cnt4+cnt5*1,cnt1+cnt2+cnt3+cnt4+cnt5*2,    &
-               cnt1+cnt2+cnt3+cnt4+cnt5*3/)
-  dim_state_p = cnt1+cnt2+cnt3+cnt4+cnt5*4
-  nam_fields = ['U','V','W','PH','T','QV','QC','QR']  
+               cnt1+cnt2+cnt3+cnt4+cnt5*3,cnt1+cnt2+cnt3+cnt4+cnt5*4,    &
+               cnt1+cnt2+cnt3+cnt4+cnt5*5,cnt1+cnt2+cnt3+cnt4+cnt5*6,    &
+               cnt1+cnt2+cnt3+cnt4+cnt5*7,cnt1+cnt2+cnt3+cnt4+cnt5*8,    &
+               cnt1+cnt2+cnt3+cnt4+cnt5*9,cnt1+cnt2+cnt3+cnt4+cnt5*10/)
+  dim_state_p = sum(dim_fields)
+  nam_fields = ['U','V','W','PH','T','QV','QC','QR','QI','QS','QG','P','RHO','DH','PSFC']
   data m /2,3,4,5,8,9/  !'QV','QC','QR','QI','QS','QG'
   
 
@@ -205,7 +212,7 @@ SUBROUTINE init_pdaf()
                     !   NETF/LNETF:
                     !     (0) use random orthonormal transformation orthogonal to (1,...,1)^T
                     !     (1) use identity transformation
-  forget  = 0.9     ! Forgetting factor
+  forget  = 0.8     ! Forgetting factor
   type_forget = 0   ! Type of forgetting factor 
                     ! SEIK/LSEIK/ETKF/LETKF/ESTKF/LESTKF
                     !   (0) fixed
@@ -242,6 +249,7 @@ SUBROUTINE init_pdaf()
   assim_SOUND_T = .false.
   assim_SOUND_U = .false.
   assim_SOUND_V = .false.
+  assim_SOUND_PH = .false.
   assim_GNSS_PW = .false.
   assim_GNSS_ZTD = .false.
 
@@ -249,21 +257,29 @@ SUBROUTINE init_pdaf()
   rms_obs_SOUND_T = 0.1    ! Observation error standard deviation
   rms_obs_SOUND_U = 0.1    ! Observation error standard deviation
   rms_obs_SOUND_V = 0.1    ! Observation error standard deviation
+  rms_obs_SOUND_PH = 0.1    ! Observation error standard deviation
   rms_obs_GNSS_PW = 0.1    ! Observation error standard deviation
   rms_obs_GNSS_ZTD = 0.1    ! Observation error standard deviation
 
 ! *** Localization settings
-  locweight = 0     ! Type of localizating weighting # locweight = 2 
+  locweight = 2     ! Type of localizating weighting # locweight = 2 
                     !   (0) constant weight of 1
                     !   (1) exponentially decreasing with SRANGE
                     !   (2) use 5th-order polynomial
                     !   (3) regulated localization of R with mean error variance
                     !   (4) regulated localization of R with single-point error variance
-  local_range = 0.001    ! Range in grid points for observation domain in local filters
-                    !   local_range = 3.0
-  srange = local_range  ! Support range for 5th-order polynomial
-                    ! or range for 1/e for exponential weighting
+  local_range = 0.0001 ! Range in grid points for observation domain in local filters
+                    !   local_range = 50. km
+  local_rangev = 0.0001 ! Vertical Range * ntimes dx in grid points for observation domain in local filters
+                       !   local_rangev = 5.*3. km
 
+! *** Single point experiment settings
+  sp_experiment = .false.
+  delt_omb = 1.     ! obs - ensmean
+  spe_x = 100       ! x grid number
+  spe_y = 100       ! y grid number
+  spe_z = 5         ! z grid number
+  
 ! *** File names
   filename = 'output.dat'  
   
@@ -275,6 +291,7 @@ SUBROUTINE init_pdaf()
   file_syntobs_SOUND_T = '../obsT'//trim(filestr)//'.nc'
   file_syntobs_SOUND_U = '../obsU'//trim(filestr)//'.nc'
   file_syntobs_SOUND_V = '../obsV'//trim(filestr)//'.nc'
+  file_syntobs_SOUND_PH = '../obsPH'//trim(filestr)//'.nc'
   file_syntobs_GNSS_PW = '../obsPW'//trim(filestr)//'.nc'
   file_syntobs_GNSS_ZTD = '../obsZTD'//trim(filestr)//'.nc'
 
@@ -292,6 +309,9 @@ SUBROUTINE init_pdaf()
 ! *** This is optional      ***
 
   IF (mype_world == 0) call init_pdaf_info()
+  
+  srange = local_range  ! Support range for 5th-order polynomial
+                    ! or range for 1/e for exponential weighting
 
 
 ! *****************************************************
@@ -336,6 +356,7 @@ SUBROUTINE init_pdaf()
       IF (assim_SOUND_U) CALL init_file_syn_obs(dim_fields(1), file_syntobs_SOUND_U, 1)
       IF (assim_SOUND_V) CALL init_file_syn_obs(dim_fields(2), file_syntobs_SOUND_V, 1)
       IF (assim_SOUND_T) CALL init_file_syn_obs(dim_fields(5), file_syntobs_SOUND_T, 1)
+      IF (assim_SOUND_PH) CALL init_file_syn_obs(dim_fields(4), file_syntobs_SOUND_PH, 1)
       IF (assim_GNSS_PW) CALL init_file_syn_obs(dim_fields(5)/(kpe-kps), &
 	                                            file_syntobs_GNSS_PW, 1)
       IF (assim_GNSS_ZTD) CALL init_file_syn_obs(dim_fields(5)/(kpe-kps), &

@@ -31,11 +31,22 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
      ens_p, flag)
 
 ! added by Changliang Shao on 2022.1228
-  USE module_domain, ONLY : head_grid, get_ijk_from_grid 
   USE mod_parallel_pdaf, &     ! Parallelization
        ONLY: mype_filter, npes_filter, COMM_filter, MPIerr, MPIstatus
   USE mod_assimilation, &      ! Assimilation variables
-       ONLY: dim_state, n_fields, off_fields, dim_fields
+       ONLY: dim_state, n_fields, off_fields, dim_fields, &
+             ids, ide, jds, jde, kds, kde,    &
+	         ims, ime, jms, jme, kms, kme,    &
+	         ips, ipe, jps, jpe, kps, kpe
+  USE obs_SOUND_U_pdafomi, &  ! Variables for observation type SOUND_U
+       ONLY: assim_SOUND_U
+  USE obs_SOUND_V_pdafomi, &  ! Variables for observation type SOUND_v
+       ONLY: assim_SOUND_V
+  USE obs_SOUND_T_pdafomi, &  ! Variables for observation type SOUND_t
+       ONLY: assim_SOUND_T
+  USE obs_SOUND_PH_pdafomi, &  ! Variables for observation type SOUND_t
+       ONLY: assim_SOUND_PH
+  
   USE mpi
   USE netcdf
 
@@ -52,9 +63,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 
 
 ! *** local variables ***
-  INTEGER :: ids, ide, jds, jde, kds, kde,    &
-             ims, ime, jms, jme, kms, kme,    & 
-			 ips, ipe, jps, jpe, kps, kpe
+  INTEGER :: its, ite, jts, jte
   INTEGER :: i, j, k, row, col, s, n, l  ! counters
   INTEGER, SAVE :: allocflag = 0      ! Flag for memory counting
   REAL(8), ALLOCATABLE :: ens(:,:)       ! global ensemble
@@ -65,17 +74,17 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
   REAL(8), ALLOCATABLE :: ET(:,:,:,:),EQV(:,:,:,:),EQC(:,:,:,:),EQR(:,:,:,:)
   REAL(8), ALLOCATABLE :: eofV(:,:)      ! matrix of eigenvectors V 
   REAL(8), ALLOCATABLE :: svals(:)       ! singular values
-  INTEGER :: dimu,dimv,dimw,dimph,dimt,dimqv,dimqc,dimqr
+  INTEGER :: dimu,dimv,dimw,dimph,dimt,dimqv,dimqc,dimqr, dim_state_pert
   INTEGER :: rank                     ! Rank of approximated covariance matrix
   REAL(8) :: fac                         ! Square-root of dim_ens-1 or dim_ens
   ! variables and arrays for domain decomposition
   INTEGER :: offset                   ! Row-offset according to domain decomposition
   INTEGER :: domain                   ! domain counter
-  REAL(8),ALLOCATABLE :: ens_p_tmp(:,:)  ! Temporary ensemble for some PE-domain
-  REAL(8),ALLOCATABLE :: state_p_tmp(:)  ! Temporary state vector for some PE-domain
+  REAL(8),ALLOCATABLE :: ens_p_tmp(:,:),ens_p_pert(:,:)  ! Temporary ensemble for some PE-domain
+  REAL(8),ALLOCATABLE :: state_p_tmp(:),state_p_pert(:)  ! Temporary state vector for some PE-domain
   REAL(8),ALLOCATABLE :: sendtmp(:), recvtmp(:)  ! Temporary state vector
   INTEGER, ALLOCATABLE :: local_dims(:)   ! PE(/=0)-local state dimension
-  INTEGER              :: IERR, dimtmp
+  INTEGER              :: IERR, dimtmp, dim_pert
   
   CHARACTER(len=120) :: inpath, outpath         ! File paths
   CHARACTER(len=120) :: infile, outfile         ! File names
@@ -86,23 +95,17 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
   INTEGER :: stat(100)                          ! Status for NC operations
   INTEGER :: countv(4), startv(4)               ! Vectors for NC operations
   integer, allocatable :: indx(:,:),cntx(:,:),indy(:)
+  real(8) :: upert(dim_ens),vpert(dim_ens),tpert(dim_ens),pert(dim_ens)
+  INTEGER       :: f_seed(4)
   
 ! added by Changliang Shao on 2023.0210  
   integer                   :: mm,dimx,dimy,dimz,dimp,     &
                                cnt1,cnt2,cnt3,cnt4,cnt5
-  integer,dimension(6) :: m
   EXTERNAL :: collect_state_pdaf      ! Collect a state vector from model fields
 
 ! **********************
 ! *** INITIALIZATION ***
 ! **********************
-
-  ! added by Changliang Shao on 2022.1228
-  data m /2,3,4,5,8,9/  !'QV','QC','QR','QI','QS','QG'  
-  call get_ijk_from_grid (  head_grid ,                &
-                            ids, ide, jds, jde, kds, kde,    &
-                            ims, ime, jms, jme, kms, kme,    &
-                            ips, ipe, jps, jpe, kps, kpe   ) 
                              
    ! cnt1 = (ipe-ips+1) * (kpe-kps) * (MIN(jpe,jde-1)-jps+1) ! U GRID C
    ! cnt2 = (MIN(ipe,ide-1)-ips+1) * (kpe-kps) * (jpe-jps+1) ! V
@@ -125,6 +128,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
    dimqv = dimt
    dimqc = dimt
    dimqr = dimt     ! QV,QC,QR
+   dim_state_pert = dimt * 8
    
    ! Path to and name of output file holding covariance matrix
    inpath = '/albedo/work/user/chshao001/PDAFTOOLS/'
@@ -146,6 +150,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 
 ! if (0==1) then 
   ! *** Rank of matrix is ensemble size minus one
+   ens_p = 0.
    rank = dim_ens - 1
    dimtmp = dim_p
    ALLOCATE ( local_dims(npes_filter), STAT=ierr ) 
@@ -196,8 +201,8 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
       WRITE (*, '(9x, a, i5)') '--- number of EOFs: ', rank
 
      ! allocate memory for temporary fields
-      ALLOCATE(eofV(dim_state, rank), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate eofV(dim_state, rank). '
+      ALLOCATE(eofV(dim_state_pert, rank), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate eofV(dim_state_pert, rank). '
       ALLOCATE(svals(rank), STAT=ierr)
       IF (ierr.NE.0) write (*,*) 'Failed to allocate svals(rank). '
 
@@ -216,12 +221,12 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
   ! values, and the singluar vectors have to be initialized
    
      ! Allocate global ensemble and state
-      ALLOCATE(ens(dim_state, dim_ens), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate ens(dim_state, dim_ens). '
-      ALLOCATE(state(dim_state), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate state(dim_state). '
-	  ALLOCATE(meanstate(dim_state), STAT=ierr)
-      IF (ierr.NE.0) write (*,*) 'Failed to allocate meanstate(dim_state). '
+      ALLOCATE(ens(dim_state_pert, dim_ens), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate ens(dim_state_pert, dim_ens). '
+      ALLOCATE(state(dim_state_pert), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate state(dim_state_pert). '
+	  ALLOCATE(meanstate(dim_state_pert), STAT=ierr)
+      IF (ierr.NE.0) write (*,*) 'Failed to allocate meanstate(dim_state_pert). '
       ! ALLOCATE(U(ide-ids+1, kde-kds, jde-jds), STAT=ierr) ! grid c
       ! IF (ierr.NE.0) write (*,*) 'Failed to allocate U(ide-ids+1, kde-kds, jde-jds). '
       ! ALLOCATE(V(ide-ids, kde-kds, jde-jds+1), STAT=ierr)
@@ -301,7 +306,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	      ! do i = ips,MIN(ipe,ide-1)
 	      ! ! do i = ips,ipe
             ! CALL MPI_send(head_grid%u_2(i,k,j), 1, &
-            ! MPI_REAL4, 0, 1111, COMM_filter, MPIerr)
+            ! MPI_REAL8, 0, 1111, COMM_filter, MPIerr)
           ! enddo
 		! enddo
       ! enddo
@@ -310,7 +315,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    ! do k = kps,(kpe-1)
 	      ! do i = ips,MIN(ipe,ide-1)
             ! CALL MPI_send(head_grid%v_2(i,k,j), 1, &
-            ! MPI_REAL4, 0, 1112, COMM_filter, MPIerr)
+            ! MPI_REAL8, 0, 1112, COMM_filter, MPIerr)
           ! enddo
 		! enddo
       ! enddo
@@ -319,7 +324,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    ! ! do k = kps,kpe
 	      ! do i = ips,MIN(ipe,ide-1)
             ! CALL MPI_send(head_grid%w_2(i,k,j), 1, &
-            ! MPI_REAL4, 0, 1113, COMM_filter, MPIerr)
+            ! MPI_REAL8, 0, 1113, COMM_filter, MPIerr)
           ! enddo
 		! enddo
       ! enddo
@@ -328,7 +333,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    ! ! do k = kps,kpe
 	      ! do i = ips,MIN(ipe,ide-1)
             ! CALL MPI_send(head_grid%ph_2(i,k,j), 1, &
-            ! MPI_REAL4, 0, 1114, COMM_filter, MPIerr)
+            ! MPI_REAL8, 0, 1114, COMM_filter, MPIerr)
           ! enddo
 		! enddo
       ! enddo
@@ -336,7 +341,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    ! do k = kps,(kpe-1)
 	      ! do i = ips,MIN(ipe,ide-1)
             ! CALL MPI_send(head_grid%t_2(i,k,j), 1, &
-            ! MPI_REAL4, 0, 1115, COMM_filter, MPIerr)
+            ! MPI_REAL8, 0, 1115, COMM_filter, MPIerr)
           ! enddo
 		! enddo
       ! enddo
@@ -345,7 +350,7 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	    ! do k = kps,(kpe-1)
 	      ! do i = ips,MIN(ipe,ide-1)
             ! CALL MPI_send(head_grid%moist(i,k,j,m(mm)), 1, &
-            ! MPI_REAL4, 0, 1115+mm, COMM_filter, MPIerr)
+            ! MPI_REAL8, 0, 1115+mm, COMM_filter, MPIerr)
           ! enddo
 		! enddo
       ! enddo
@@ -353,151 +358,149 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 	  
       ! send sub-fields from PEs /=0 grid a
 	  do l = 1, cnt1
-	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1111, COMM_filter, MPIerr)
+	    CALL MPI_send(state_p(l), 1, MPI_DOUBLE_PRECISION, 0, 1111, COMM_filter, MPIerr)
       enddo
 	  do l = cnt1+1, cnt1+cnt2
-	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1112, COMM_filter, MPIerr)
+	    CALL MPI_send(state_p(l), 1, MPI_DOUBLE_PRECISION, 0, 1112, COMM_filter, MPIerr)
       enddo
 	  do l = cnt1+cnt2+1, cnt1+cnt2+cnt3
-	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1113, COMM_filter, MPIerr)
+	    CALL MPI_send(state_p(l), 1, MPI_DOUBLE_PRECISION, 0, 1113, COMM_filter, MPIerr)
       enddo
 	  do l = cnt1+cnt2+cnt3+1, cnt1+cnt2+cnt3+cnt4
-	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1114, COMM_filter, MPIerr)
+	    CALL MPI_send(state_p(l), 1, MPI_DOUBLE_PRECISION, 0, 1114, COMM_filter, MPIerr)
       enddo
 	  do l = cnt1+cnt2+cnt3+cnt4+1, cnt1+cnt2+cnt3+cnt4+cnt5
-	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1115, COMM_filter, MPIerr)
+	    CALL MPI_send(state_p(l), 1, MPI_DOUBLE_PRECISION, 0, 1115, COMM_filter, MPIerr)
       enddo
-	  do mm = 1,3
-	  do l = cnt1+cnt2+cnt3+cnt4+cnt5*mm+1, cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*mm
-	    CALL MPI_send(state_p(l), 1, MPI_REAL8, 0, 1115+mm, COMM_filter, MPIerr)
+	  do l = cnt1+cnt2+cnt3+cnt4+cnt5*1+1, cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*1
+	    CALL MPI_send(state_p(l), 1, MPI_DOUBLE_PRECISION, 0, 1116, COMM_filter, MPIerr)
       enddo
-	  enddo
+	  do l = cnt1+cnt2+cnt3+cnt4+cnt5*2+1, cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*2
+	    CALL MPI_send(state_p(l), 1, MPI_DOUBLE_PRECISION, 0, 1117, COMM_filter, MPIerr)
+      enddo
+	  do l = cnt1+cnt2+cnt3+cnt4+cnt5*3+1, cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*3
+	    CALL MPI_send(state_p(l), 1, MPI_DOUBLE_PRECISION, 0, 1118, COMM_filter, MPIerr)
+      enddo
  
    ELSE PE0_200
       ! receive and assemble state field 	  
       DO n = 1, npes_filter
 	  
-      ips = indx(n,1)
-      ipe = indx(n,2)
-      jps = indx(n,3)
-      jpe = indx(n,4)
+      its = indx(n,1)
+      ite = indx(n,2)
+      jts = indx(n,3)
+      jte = indx(n,4)
+	  ite = MIN(ite,ide-1)
+	  jte = MIN(jte,jde-1)
 	  
 	  if (n == 1) then	  
 	  
         ! ! On PE 0 init state directly grid c
-        ! U(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    ! head_grid%u_2(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1)) 
-	    ! V(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe) = &
-	    ! head_grid%v_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe)
-        ! W(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1)) = &
-        ! head_grid%w_2(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1))   
-        ! PH(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1)) = &
-        ! head_grid%ph_2(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1))    
-        ! T(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-        ! head_grid%t_2(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1))	  
-	    ! QV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    ! head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),1)  
-	    ! QC(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    ! head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),2)  
-	    ! QR(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    ! head_grid%moist(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),3)
+        ! U(its:ite,kps:(kpe-1),jts:MIN(jte,jde-1)) = &
+	    ! head_grid%u_2(its:ite,kps:(kpe-1),jts:MIN(jte,jde-1)) 
+	    ! V(its:MIN(ite,ide-1),kps:(kpe-1),jts:jte) = &
+	    ! head_grid%v_2(its:MIN(ite,ide-1),kps:(kpe-1),jts:jte)
+        ! W(its:MIN(ite,ide-1),kps:kpe,jts:MIN(jte,jde-1)) = &
+        ! head_grid%w_2(its:MIN(ite,ide-1),kps:kpe,jts:MIN(jte,jde-1))   
+        ! PH(its:MIN(ite,ide-1),kps:kpe,jts:MIN(jte,jde-1)) = &
+        ! head_grid%ph_2(its:MIN(ite,ide-1),kps:kpe,jts:MIN(jte,jde-1))    
+        ! T(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1)) = &
+        ! head_grid%t_2(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1))	  
+	    ! QV(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1)) = &
+	    ! head_grid%moist(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),1)  
+	    ! QC(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1)) = &
+	    ! head_grid%moist(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),2)  
+	    ! QR(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1)) = &
+	    ! head_grid%moist(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),3)
 		
         ! On PE 0 init state directly grid a
-		U(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    reshape(state_p(1:cnt1), &
-		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
-	    V(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    reshape(state_p(cnt1+1:cnt1+cnt2), &
-		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
-        W(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    reshape(state_p(cnt1+cnt2+1:cnt1+cnt2+cnt3), &
-		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
-        PH(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    reshape(state_p(cnt1+cnt2+cnt3+1:cnt1+cnt2+cnt3+cnt4), &
-		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
-        T(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    reshape(state_p(cnt1+cnt2+cnt3+cnt4+1:cnt1+cnt2+cnt3+cnt4+cnt5), &
-		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
-	    QV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    reshape(state_p(cnt1+cnt2+cnt3+cnt4+cnt5*1+1:cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*1), &
-		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1]) 
-	    QC(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    reshape(state_p(cnt1+cnt2+cnt3+cnt4+cnt5*2+1:cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*2), &
-		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
-	    QR(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1)) = &
-	    reshape(state_p(cnt1+cnt2+cnt3+cnt4+cnt5*3+1:cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*3), &
-		[MIN(ipe,ide-1)-ips+1,kpe-kps,MIN(jpe,jde-1)-jps+1])
+		l = 1
+		do j = jts,jte
+		  do k = kps,(kpe-1)
+		    do i = its,ite
+			  U(i,k,j) = state_p(l+off_fields(1))
+			  V(i,k,j) = state_p(l+off_fields(2))
+			  W(i,k,j) = state_p(l+off_fields(3))
+			  PH(i,k,j) = state_p(l+off_fields(4))
+			  T(i,k,j) = state_p(l+off_fields(5))
+			  QV(i,k,j) = state_p(l+off_fields(6))
+			  QC(i,k,j) = state_p(l+off_fields(7))
+			  QR(i,k,j) = state_p(l+off_fields(8))
+			  l = l +1
+			enddo
+		  enddo
+		enddo
  
       ! Receive part of state field from PEs > 0 into 
       ! correct part of global state 
 
       else
 	  
-	  do j = jps,MIN(jpe,jde-1)
+	  do j = jts,jte
 	    do k = kps,(kpe-1)
-	      do i = ips,MIN(ipe,ide-1)
-	      ! do i = ips,ipe
+	      do i = its,ite
+	      ! do i = its,ite
             CALL MPI_recv(U(i,k,j), 1, &
-            MPI_REAL8, n-1, 1111, COMM_filter, MPIstatus, MPIerr)
+            MPI_DOUBLE_PRECISION, n-1, 1111, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
-	  ! do j = jps,jpe
-	  do j = jps,MIN(jpe,jde-1)
+	  ! do j = jts,jte
+	  do j = jts,jte
 	    do k = kps,(kpe-1)
-	      do i = ips,MIN(ipe,ide-1)
+	      do i = its,ite
             CALL MPI_recv(V(i,k,j), 1, &
-            MPI_REAL8, n-1, 1112, COMM_filter, MPIstatus, MPIerr)
+            MPI_DOUBLE_PRECISION, n-1, 1112, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
-	  do j = jps,MIN(jpe,jde-1)
+	  do j = jts,jte
 	    do k = kps,(kpe-1)
 	    ! do k = kps,kpe
-	      do i = ips,MIN(ipe,ide-1)
+	      do i = its,ite
             CALL MPI_recv(W(i,k,j), 1, &
-            MPI_REAL8, n-1, 1113, COMM_filter, MPIstatus, MPIerr)
+            MPI_DOUBLE_PRECISION, n-1, 1113, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
-	  do j = jps,MIN(jpe,jde-1)
+	  do j = jts,jte
 	    do k = kps,(kpe-1)
 	    ! do k = kps,kpe
-	      do i = ips,MIN(ipe,ide-1)
+	      do i = its,ite
             CALL MPI_recv(PH(i,k,j), 1, &
-            MPI_REAL8, n-1, 1114, COMM_filter, MPIstatus, MPIerr)
+            MPI_DOUBLE_PRECISION, n-1, 1114, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
-	  do j = jps,MIN(jpe,jde-1)
+	  do j = jts,jte
 	    do k = kps,(kpe-1)
-	      do i = ips,MIN(ipe,ide-1)
+	      do i = its,ite
             CALL MPI_recv(T(i,k,j), 1, &
-            MPI_REAL8, n-1, 1115, COMM_filter, MPIstatus, MPIerr)
+            MPI_DOUBLE_PRECISION, n-1, 1115, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
-	  do j = jps,MIN(jpe,jde-1)
+	  do j = jts,jte
 	    do k = kps,(kpe-1)
-	      do i = ips,MIN(ipe,ide-1)
+	      do i = its,ite
             CALL MPI_recv(QV(i,k,j), 1, &
-            MPI_REAL8, n-1, 1115+1, COMM_filter, MPIstatus, MPIerr)
+            MPI_DOUBLE_PRECISION, n-1, 1115+1, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
-	  do j = jps,MIN(jpe,jde-1)
+	  do j = jts,jte
 	    do k = kps,(kpe-1)
-	      do i = ips,MIN(ipe,ide-1)
+	      do i = its,ite
             CALL MPI_recv(QC(i,k,j), 1, &
-            MPI_REAL8, n-1, 1115+2, COMM_filter, MPIstatus, MPIerr)
+            MPI_DOUBLE_PRECISION, n-1, 1115+2, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
-	  do j = jps,MIN(jpe,jde-1)
+	  do j = jts,jte
 	    do k = kps,(kpe-1)
-	      do i = ips,MIN(ipe,ide-1)
+	      do i = its,ite
             CALL MPI_recv(QR(i,k,j), 1, &
-            MPI_REAL8, n-1, 1115+3, COMM_filter, MPIstatus, MPIerr)
+            MPI_DOUBLE_PRECISION, n-1, 1115+3, COMM_filter, MPIstatus, MPIerr)
           enddo
 		enddo
       enddo
@@ -526,31 +529,31 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
       ! reshape(QR(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimt])
 	  
 	  ! grid a
-	  state(1:dimu) = &
-      reshape(U(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimu])  
-      state((dimu+1):(dimu+dimv)) = &
-      reshape(V(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimv])
-      state((dimu+dimv+1):(dimu+dimv+dimw)) = &
-      reshape(W(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimw]) 
-      state((dimu+dimv+dimw+1):(dimu+dimv+dimw+dimph)) = &
-      reshape(PH(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimph])  
-      state((dimu+dimv+dimw+dimph+1):(dimu+dimv+dimw+dimph+dimt)) = &
-      reshape(T(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimt]) 
-      state((dimu+dimv+dimw+dimph+dimt*1+1):(dimu+dimv+dimw+dimph+dimt+dimt*1)) = &
-      reshape(QV(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimt])
-      state((dimu+dimv+dimw+dimph+dimt*2+1):(dimu+dimv+dimw+dimph+dimt+dimt*2)) = &
-      reshape(QC(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimt])
-      state((dimu+dimv+dimw+dimph+dimt*3+1):(dimu+dimv+dimw+dimph+dimt+dimt*3)) = &
-      reshape(QR(ids:(ide-1),kds:(kde-1),jds:(jde-1)), [dimt])
+	  l = 1
+	  do j = jds,(jde-1)
+	    do k = kds,(kde-1)
+		  do i = ids,(ide-1)
+		    state(l) = U(i,k,j)
+			state(dimu+l) = V(i,k,j)
+			state(dimu+dimv+l) = W(i,k,j)
+			state(dimu+dimv+dimw+l) = PH(i,k,j)
+			state(dimu+dimv+dimw+dimph+l) = T(i,k,j)
+			state(dimu+dimv+dimw+dimph+dimt*1+l) = QV(i,k,j)
+			state(dimu+dimv+dimw+dimph+dimt*2+l) = QC(i,k,j)
+			state(dimu+dimv+dimw+dimph+dimt*3+l) = QR(i,k,j)
+			l = l + 1
+		  enddo
+		enddo
+	  enddo
 	  
-      print *, 'mean(U)', sum(U)/size(U)
-      print *, 'mean(V)', sum(V)/size(V)
-      print *, 'mean(W)', sum(W)/size(W)
-      print *, 'mean(PH)', sum(PH)/size(PH)
-      print *, 'mean(T)', sum(T)/size(T)
-      print *, 'mean(QV)', sum(QV)/size(QV)
-      print *, 'mean(QC)', sum(QC)/size(QC)
-      print *, 'mean(QR)', sum(QR)/size(QR)
+      print *, 'mean(U)=', sum(U)/size(U)
+      print *, 'mean(V)=', sum(V)/size(V)
+      print *, 'mean(W)=', sum(W)/size(W)
+      print *, 'mean(PH)=', sum(PH)/size(PH)
+      print *, 'mean(T)=', sum(T)/size(T)
+      print *, 'mean(QV)=', sum(QV)/size(QV)
+      print *, 'mean(QC)=', sum(QC)/size(QC)
+      print *, 'mean(QR)=', sum(QR)/size(QR)
 	  
    END IF PE0_200
 
@@ -563,8 +566,8 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
      s = s + 1
      stat(s) = NF90_INQ_VARID(ncid_in, 'meanstate', id_mstate)
      s = s + 1
-     stat(s) = NF90_GET_VAR(ncid_in, id_mstate, meanstate, &
-               start = (/1/), count = (/dim_state/))
+     stat(s) = NF90_GET_VAR(ncid_in, id_mstate, meanstate(1:dim_state_pert), &
+               start = (/1/), count = (/dim_state_pert/))
      DO k = 1,  s
          IF (stat(k) /= NF90_NOERR) &
              WRITE(*, *) 'NetCDF error in writing meanstate'
@@ -585,8 +588,8 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
      stat(s) = NF90_INQ_VARID(ncid_in, 'u_svd', id_svec)
 	 do i = 1, rank
 	    s = s + 1
-        stat(s) = NF90_GET_VAR(ncid_in, id_svec, eofV(:,i), &
-	              start=(/1, i/), count=(/dim_state, 1/))
+        stat(s) = NF90_GET_VAR(ncid_in, id_svec, eofV(1:dim_state_pert,i), &
+	              start=(/1, i/), count=(/dim_state_pert, 1/))
      enddo
      DO k = 1,  s
          IF (stat(k) /= NF90_NOERR) WRITE(*, *) 'NetCDF error in &
@@ -627,11 +630,17 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
      if (dim_ens > 1) then 
        ! Generate ensemble using PDAF sampling routine
 	   ! SCHEME 1: using state
-       CALL PDAF_SampleEns(dim_state, dim_ens, eofV, svals, state, &
-            ens, 1, flag)
+       CALL PDAF_SampleEns(dim_state_pert, dim_ens, eofV(1:dim_state_pert,1:dim_ens), svals, &
+            state(1:dim_state_pert), ens(1:dim_state_pert,1:dim_ens), 1, flag)
        ! Generate ensemble using PDAF sampling routine
 	   ! SCHEME 2: using meanstate
-       ! CALL PDAF_SampleEns(dim_state, dim_ens, eofV, svals, meanstate, &
+       ! CALL PDAF_SampleEns(dim_state_pert, dim_ens, eofV, svals, meanstate, &
+            ! ens, 1, flag)
+	   ! SCHEME 3: using random
+	   ! do i = 1, dim_ens
+     	   ! ens(1:dim_state_pert,i) = state(1:dim_state_pert)
+	   ! enddo
+       ! CALL PDAF_SampleEns(dim_state_pert, dim_ens, eofV, svals, meanstate, &
             ! ens, 1, flag)
      else
        ! added by Changliang Shao on 2022.1229 for using true state.
@@ -649,54 +658,113 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
    mype0b: IF (mype_filter == 0) THEN
 				   
      ! *** Initialize and send sub-state on PE 0 ***
-
-      EU = reshape(ens(1:dimu,:), &
-           ! [ide-ids+1,kde-kds,jde-jds,dim_ens])
-           [ide-ids,kde-kds,jde-jds,dim_ens])
-      EV = reshape(ens((dimu+1):(dimu+dimv),:), &
-           ! [ide-ids,kde-kds,jde-jds+1,dim_ens])
-           [ide-ids,kde-kds,jde-jds,dim_ens])
-      EW = reshape(ens((dimu+dimv+1):(dimu+dimv+dimw),:), &
-           ! [ide-ids,kde-kds+1,jde-jds,dim_ens])
-           [ide-ids,kde-kds,jde-jds,dim_ens])
-      EPH = reshape(ens((dimu+dimv+dimw+1):(dimu+dimv+dimw+dimph),:), &
-           ! [ide-ids,kde-kds+1,jde-jds,dim_ens]) 
-           [ide-ids,kde-kds,jde-jds,dim_ens]) 
-      ET = reshape(ens((dimu+dimv+dimw+dimph+1):(dimu+dimv+dimw+dimph+dimt),:), &
-           [ide-ids,kde-kds,jde-jds,dim_ens]) 
-      EQV = reshape(ens((dimu+dimv+dimw+dimph+dimt*1+1):(dimu+dimv+dimw+dimph+dimt+dimt*1),:), &
-           [ide-ids,kde-kds,jde-jds,dim_ens]) 
-      EQC = reshape(ens((dimu+dimv+dimw+dimph+dimt*2+1):(dimu+dimv+dimw+dimph+dimt+dimt*2),:), &
-           [ide-ids,kde-kds,jde-jds,dim_ens]) 
-      EQR = reshape(ens((dimu+dimv+dimw+dimph+dimt*3+1):(dimu+dimv+dimw+dimph+dimt+dimt*3),:), &
-           [ide-ids,kde-kds,jde-jds,dim_ens]) 
-      do n = 1,dim_ens
-      ! print *, 'mean(EU),n',n, sum(EU(:,:,:,n))/size(EU(:,:,:,n))
-      ! print *, 'mean(EV),n',n, sum(EV(:,:,:,n))/size(EV(:,:,:,n))
-      ! print *, 'mean(EW),n',n, sum(EW(:,:,:,n))/size(EW(:,:,:,n))
-      ! print *, 'mean(EPH),n',n, sum(EPH(:,:,:,n))/size(EPH(:,:,:,n))
-      ! print *, 'mean(ET),n',n, sum(ET(:,:,:,n))/size(ET(:,:,:,n))
-      ! print *, 'mean(EQV),n',n, sum(EQV(:,:,:,n))/size(EQV(:,:,:,n))
-      ! print *, 'mean(EQC),n',n, sum(EQC(:,:,:,n))/size(EQC(:,:,:,n))
-      ! print *, 'mean(EQR),n',n, sum(EQR(:,:,:,n))/size(EQR(:,:,:,n))
-      do j = jds,jde-1
-	     do k = kds,kde-1
+	 
+	  ! scheme 1,2. second order
+	  do n = 1, dim_ens
+	    l = 1
+        do j = jds,jde-1
+	      do k = kds,kde-1
 		    do i = ids,ide-1
-			   if (EQV(i,k,j,n) < 0.0) EQV(i,k,j,n) = 0.0
-			   if (EQC(i,k,j,n) < 0.0) EQC(i,k,j,n) = 0.0
-			   if (EQR(i,k,j,n) < 0.0) EQR(i,k,j,n) = 0.0
+			  EU(i,k,j,n) = ens(l,n)
+			  EV(i,k,j,n) = ens(dimu+l,n)
+			  EW(i,k,j,n) = ens(dimu+dimv+l,n)
+			  EPH(i,k,j,n) = ens(dimu+dimv+dimw+l,n)
+			  ET(i,k,j,n) = ens(dimu+dimv+dimw+dimph+l,n)
+			  EQV(i,k,j,n) = ens(dimu+dimv+dimw+dimph+dimt*1+l,n)
+			  EQC(i,k,j,n) = ens(dimu+dimv+dimw+dimph+dimt*2+l,n)
+			  EQR(i,k,j,n) = ens(dimu+dimv+dimw+dimph+dimt*3+l,n)
+			  if (EQV(i,k,j,n) < 0.0) EQV(i,k,j,n) = 0.0
+			  if (EQC(i,k,j,n) < 0.0) EQC(i,k,j,n) = 0.0
+			  if (EQR(i,k,j,n) < 0.0) EQR(i,k,j,n) = 0.0
+			  l = l + 1
             enddo
-         enddo
-      enddo
-	  enddo
+          enddo
+        enddo
+	  enddo ! dims_ens
+	  
+	  ! ! scheme 3. random
+      ! f_seed(1)=1000
+      ! f_seed(2)=2034
+      ! f_seed(3)=0
+      ! f_seed(4)=3
+      ! CALL DLARNV(3, f_seed, dim_ens, pert)
+	  ! l = 1
+      ! do j = jds,jde-1
+	    ! do k = kds,kde-1
+		  ! do i = ids,ide-1
+		    ! upert = 0 
+			! vpert = 0
+			! tpert = 0
+	        ! upert(1:dim_ens) = state(l) + 1.*pert(1:dim_ens)
+	        ! vpert(1:dim_ens) = state(dimu+l) + 1.*pert(1:dim_ens)
+	        ! tpert(1:dim_ens) = state(dimu+dimv+dimw+dimph+l) + 2.*pert(1:dim_ens)
+	        ! do n = 1, dim_ens 
+			  ! EU(i,k,j,n) = upert(n)
+			  ! EV(i,k,j,n) = vpert(n)
+			  ! EW(i,k,j,n) = ens(dimu+dimv+l,n)
+			  ! EPH(i,k,j,n) = ens(dimu+dimv+dimw+l,n)
+			  ! ET(i,k,j,n) = tpert(n)
+			  ! EQV(i,k,j,n) = ens(dimu+dimv+dimw+dimph+dimt*1+l,n)
+			  ! EQC(i,k,j,n) = ens(dimu+dimv+dimw+dimph+dimt*2+l,n)
+			  ! EQR(i,k,j,n) = ens(dimu+dimv+dimw+dimph+dimt*3+l,n)
+			  ! if (EQV(i,k,j,n) < 0.0) EQV(i,k,j,n) = 0.0
+			  ! if (EQC(i,k,j,n) < 0.0) EQC(i,k,j,n) = 0.0
+			  ! if (EQR(i,k,j,n) < 0.0) EQR(i,k,j,n) = 0.0
+            ! enddo
+		    ! l = l + 1
+          ! enddo
+        ! enddo
+	  ! enddo ! dims_ens
 
-      !offset = 0
+      ! do n = 1,dim_ens
+      ! EU(:,:,:,n) = reshape(ens(1:dimu,n), &
+           ! ! [ide-ids+1,kde-kds,jde-jds])
+           ! [ide-ids,kde-kds,jde-jds,1])
+      ! EV(:,:,:,n) = reshape(ens((dimu+1):(dimu+dimv),n), &
+           ! ! [ide-ids,kde-kds,jde-jds+1])
+           ! [ide-ids,kde-kds,jde-jds,1])
+      ! EW(:,:,:,n) = reshape(ens((dimu+dimv+1):(dimu+dimv+dimw),n), &
+           ! ! [ide-ids,kde-kds+1,jde-jds])
+           ! [ide-ids,kde-kds,jde-jds,1])
+      ! EPH(:,:,:,n) = reshape(ens((dimu+dimv+dimw+1):(dimu+dimv+dimw+dimph),n), &
+           ! ! [ide-ids,kde-kds+1,jde-jds]) 
+           ! [ide-ids,kde-kds,jde-jds,1]) 
+      ! ET(:,:,:,n) = reshape(ens((dimu+dimv+dimw+dimph+1):(dimu+dimv+dimw+dimph+dimt),n), &
+           ! [ide-ids,kde-kds,jde-jds,1]) 
+      ! EQV(:,:,:,n) = reshape(ens((dimu+dimv+dimw+dimph+dimt*1+1):(dimu+dimv+dimw+dimph+dimt+dimt*1),n), &
+           ! [ide-ids,kde-kds,jde-jds,1]) 
+      ! EQC(:,:,:,n) = reshape(ens((dimu+dimv+dimw+dimph+dimt*2+1):(dimu+dimv+dimw+dimph+dimt+dimt*2),n), &
+           ! [ide-ids,kde-kds,jde-jds,1]) 
+      ! EQR(:,:,:,n) = reshape(ens((dimu+dimv+dimw+dimph+dimt*3+1):(dimu+dimv+dimw+dimph+dimt+dimt*3),n), &
+           ! [ide-ids,kde-kds,jde-jds,1]) 
+      ! ! print *, 'mean(EU),n',n, sum(EU(:,:,:,n))/size(EU(:,:,:,n))
+      ! ! print *, 'mean(EV),n',n, sum(EV(:,:,:,n))/size(EV(:,:,:,n))
+      ! ! print *, 'mean(EW),n',n, sum(EW(:,:,:,n))/size(EW(:,:,:,n))
+      ! ! print *, 'mean(EPH),n',n, sum(EPH(:,:,:,n))/size(EPH(:,:,:,n))
+      ! ! print *, 'mean(ET),n',n, sum(ET(:,:,:,n))/size(ET(:,:,:,n))
+      ! ! print *, 'mean(EQV),n',n, sum(EQV(:,:,:,n))/size(EQV(:,:,:,n))
+      ! ! print *, 'mean(EQC),n',n, sum(EQC(:,:,:,n))/size(EQC(:,:,:,n))
+      ! ! print *, 'mean(EQR),n',n, sum(EQR(:,:,:,n))/size(EQR(:,:,:,n))
+      ! do j = jds,jde-1
+	     ! do k = kds,kde-1
+		    ! do i = ids,ide-1
+			   ! if (EQV(i,k,j,n) < 0.0) EQV(i,k,j,n) = 0.0
+			   ! if (EQC(i,k,j,n) < 0.0) EQC(i,k,j,n) = 0.0
+			   ! if (EQR(i,k,j,n) < 0.0) EQR(i,k,j,n) = 0.0
+            ! enddo
+         ! enddo
+      ! enddo
+	  ! enddo ! dims_ens
+	  
+      
       DO domain = 1, npes_filter
 	  
-		 ips = indx(domain,1)
-		 ipe = indx(domain,2)
-		 jps = indx(domain,3)
-		 jpe = indx(domain,4)
+		 its = indx(domain,1)
+		 ite = indx(domain,2)
+		 jts = indx(domain,3)
+		 jte = indx(domain,4)
+		 ite = MIN(ite,ide-1)
+		 jte = MIN(jte,jde-1)
 		 cnt1 = cntx(domain,1)
 		 cnt2 = cntx(domain,2)
 		 cnt3 = cntx(domain,3)
@@ -706,32 +774,50 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
          whichdomain: IF (domain == 1) THEN
            ! Initialize sub-state and sub_ensemble for PE 0
            ! perform reordering of mode matrix for PE 0
+		    do n = 1, dim_ens
+			  l = 1
+			  do j = jts,jte
+			    do k = kps,(kpe-1)
+				  do i = its,ite
+				    ens_p(l,n) = EU(i,k,j,n)
+					ens_p(cnt1+l,n) = EV(i,k,j,n)
+					ens_p(cnt1+cnt2+l,n) = EW(i,k,j,n)
+					ens_p(cnt1+cnt2+cnt3+l,n) = EPH(i,k,j,n)
+					ens_p(cnt1+cnt2+cnt3+cnt4+l,n) = ET(i,k,j,n)
+					ens_p(cnt1+cnt2+cnt3+cnt4+cnt5*1+l,n) = EQV(i,k,j,n)
+					ens_p(cnt1+cnt2+cnt3+cnt4+cnt5*2+l,n) = EQC(i,k,j,n)
+					ens_p(cnt1+cnt2+cnt3+cnt4+cnt5*3+l,n) = EQR(i,k,j,n)
+					l = l +1
+				  enddo
+				enddo
+			  enddo
+            enddo		
 			   
-            do i = 1, dim_ens
-            ens_p(1:cnt1,i) = &
-            ! reshape(EU(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt1]) 
-            reshape(EU(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt1]) 
-            ens_p((cnt1+1):(cnt1+cnt2),i) = &
-            ! reshape(EV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe,i), [cnt2])
-            reshape(EV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt2])
-            ens_p((cnt1+cnt2+1):(cnt1+cnt2+cnt3),i) = &
-            ! reshape(EW(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt3])  
-            reshape(EW(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt3])    
-            ens_p((cnt1+cnt2+cnt3+1):(cnt1+cnt2+cnt3+cnt4),i) = &
-            ! reshape(EPH(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt4])  
-            reshape(EPH(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt4])      
-            ens_p((cnt1+cnt2+cnt3+cnt4+1):(cnt1+cnt2+cnt3+cnt4+cnt5),i) = &
-            reshape(ET(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt5])   
-            ens_p((cnt1+cnt2+cnt3+cnt4+cnt5*1+1):&
-			(cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*1),i) = &
-            reshape(EQV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt5])			
-            ens_p((cnt1+cnt2+cnt3+cnt4+cnt5*2+1):&
-			(cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*2),i) = &
-            reshape(EQC(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt5])			
-            ens_p((cnt1+cnt2+cnt3+cnt4+cnt5*3+1):&
-			(cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*3),i) = &
-            reshape(EQR(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i),[cnt5]) 
-            enddo			
+            ! do i = 1, dim_ens
+            ! ens_p(1:cnt1,i) = &
+            ! ! reshape(EU(its:ite,kps:(kpe-1),jts:MIN(jte,jde-1),i), [cnt1]) 
+            ! reshape(EU(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),i), [cnt1]) 
+            ! ens_p((cnt1+1):(cnt1+cnt2),i) = &
+            ! ! reshape(EV(its:MIN(ite,ide-1),kps:(kpe-1),jts:jte,i), [cnt2])
+            ! reshape(EV(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),i), [cnt2])
+            ! ens_p((cnt1+cnt2+1):(cnt1+cnt2+cnt3),i) = &
+            ! ! reshape(EW(its:MIN(ite,ide-1),kps:kpe,jts:MIN(jte,jde-1),i), [cnt3])  
+            ! reshape(EW(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),i), [cnt3])    
+            ! ens_p((cnt1+cnt2+cnt3+1):(cnt1+cnt2+cnt3+cnt4),i) = &
+            ! ! reshape(EPH(its:MIN(ite,ide-1),kps:kpe,jts:MIN(jte,jde-1),i), [cnt4])  
+            ! reshape(EPH(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),i), [cnt4])      
+            ! ens_p((cnt1+cnt2+cnt3+cnt4+1):(cnt1+cnt2+cnt3+cnt4+cnt5),i) = &
+            ! reshape(ET(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),i), [cnt5])   
+            ! ens_p((cnt1+cnt2+cnt3+cnt4+cnt5*1+1):&
+			! (cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*1),i) = &
+            ! reshape(EQV(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),i), [cnt5])			
+            ! ens_p((cnt1+cnt2+cnt3+cnt4+cnt5*2+1):&
+			! (cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*2),i) = &
+            ! reshape(EQC(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),i), [cnt5])			
+            ! ens_p((cnt1+cnt2+cnt3+cnt4+cnt5*3+1):&
+			! (cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*3),i) = &
+            ! reshape(EQR(its:MIN(ite,ide-1),kps:(kpe-1),jts:MIN(jte,jde-1),i),[cnt5]) 
+            ! enddo			
            
          ELSE whichdomain
            ! Initialize sub-state and sub_ensemble for other PEs
@@ -744,44 +830,29 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
            ! perform reordering of mode matrix
            ! perform reordering of state
 			
-            do i = 1, dim_ens
-			ens_p_tmp(1:cnt1,i) = &
-            ! reshape(EU(ips:ipe,kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt1]) 
-            reshape(EU(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt1]) 
-            ens_p_tmp((cnt1+1):(cnt1+cnt2),i) = &
-            ! reshape(EV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:jpe,i), [cnt2])
-            reshape(EV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt2])
-            ens_p_tmp((cnt1+cnt2+1):(cnt1+cnt2+cnt3),i) = &
-            ! reshape(EW(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt3])  
-            reshape(EW(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt3])   
-            ens_p_tmp((cnt1+cnt2+cnt3+1):(cnt1+cnt2+cnt3+cnt4),i) = &
-            ! reshape(EPH(ips:MIN(ipe,ide-1),kps:kpe,jps:MIN(jpe,jde-1),i), [cnt4])  
-            reshape(EPH(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt4])    
-            ens_p_tmp((cnt1+cnt2+cnt3+cnt4+1):(cnt1+cnt2+cnt3+cnt4+cnt5),i) = &
-            reshape(ET(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt5])   
-            ens_p_tmp((cnt1+cnt2+cnt3+cnt4+cnt5*1+1):&
-			(cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*1),i) = &
-            reshape(EQV(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt5])			
-            ens_p_tmp((cnt1+cnt2+cnt3+cnt4+cnt5*2+1):&
-			(cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*2),i) = &
-            reshape(EQC(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i), [cnt5])			
-            ens_p_tmp((cnt1+cnt2+cnt3+cnt4+cnt5*3+1):&
-			(cnt1+cnt2+cnt3+cnt4+cnt5+cnt5*3),i) = &
-            reshape(EQR(ips:MIN(ipe,ide-1),kps:(kpe-1),jps:MIN(jpe,jde-1),i),[cnt5])
-           ! Send sub-arrays
-            CALL MPI_send(ens_p_tmp(1,i), local_dims(domain), &      
-                 MPI_REAL8, domain-1, 2000+i, COMM_filter, MPIerr)
+            do n = 1, dim_ens
+			  l = 1
+			  do j = jts,jte
+			    do k = kps,(kpe-1)
+				  do i = its,ite
+				    ens_p_tmp(l,n) = EU(i,k,j,n)
+					ens_p_tmp(cnt1+l,n) = EV(i,k,j,n)
+					ens_p_tmp(cnt1+cnt2+l,n) = EW(i,k,j,n)
+					ens_p_tmp(cnt1+cnt2+cnt3+l,n) = EPH(i,k,j,n)
+					ens_p_tmp(cnt1+cnt2+cnt3+cnt4+l,n) = ET(i,k,j,n)
+					ens_p_tmp(cnt1+cnt2+cnt3+cnt4+cnt5*1+l,n) = EQV(i,k,j,n)
+					ens_p_tmp(cnt1+cnt2+cnt3+cnt4+cnt5*2+l,n) = EQC(i,k,j,n)
+					ens_p_tmp(cnt1+cnt2+cnt3+cnt4+cnt5*3+l,n) = EQR(i,k,j,n)
+					l = l +1
+				  enddo
+				enddo
+			  enddo
+              CALL MPI_send(ens_p_tmp(1,n), local_dims(domain), &      
+                   MPI_DOUBLE_PRECISION, domain-1, 2000+n, COMM_filter, MPIerr)
             enddo
+           ! Send sub-arrays
             DEALLOCATE(ens_p_tmp)			
 			
-			! sendtmp = reshape(ens_p_tmp, [local_dims(domain)*dim_ens])
-			
-           ! ! Send sub-arrays
-            ! CALL MPI_send(sendtmp, local_dims(domain)*dim_ens, &      
-                 ! MPI_REAL8, domain-1, 2000, COMM_filter, MPIerr)
- 
-            ! DEALLOCATE(ens_p_tmp, sendtmp)
-
          END IF whichdomain
 
         ! Increment offset
@@ -793,16 +864,8 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
      ! *** Receive substate on filter-PEs with rank > 0 ***
       do j = 1, dim_ens
 	    CALL MPI_recv(ens_p(1,j), dim_p, &
-             MPI_REAL8, 0, 2000+j, COMM_filter, MPIstatus, MPIerr)
+             MPI_DOUBLE_PRECISION, 0, 2000+j, COMM_filter, MPIstatus, MPIerr)
       enddo
-	  ! ALLOCATE(recvtmp(dim_p*dim_ens), STAT=ierr) 
-      ! IF (ierr.NE.0) THEN
-          ! write (*,*) 'Failed to allocate recvtmp(dim_p*dim_ens). '
-      ! ENDIF
-      ! CALL MPI_recv(recvtmp, dim_p*dim_ens, &
-           ! MPI_REAL8, 0, 2000, COMM_filter, MPIstatus, MPIerr)	 
-      ! ens_p = reshape(recvtmp, [dim_p, dim_ens])	  
-      ! DEALLOCATE(recvtmp)
      
    END IF mype0b
 
@@ -811,13 +874,20 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 ! *** no pert added by Changliang Shao on 20230207 ***
 ! ****************************************************
    ! ALLOCATE(indy(8))
-   ! indy = [4,6,7,8]
-   ! DO i=1, dim_ens
-       ! do j = 1, size(indy)
-           ! ens_p((1+off_fields(indy(j))):(dim_fields(indy(j))+off_fields(indy(j))), i) = &
-           ! state_p((1+off_fields(indy(j))):(dim_fields(indy(j))+off_fields(indy(j)))) 
-       ! enddo
-   ! END DO
+   ! indy = [1,2,3,4,5,6,7,8]
+   ALLOCATE(indy(7))
+   indy = [9,10,11,12,13,14,15]
+   DO i=1, dim_ens
+       do j = 1, size(indy)
+	       if (j == 9 .or. j == 10 .or. j == 11) then
+		       ens_p((1+off_fields(indy(j))):(dim_fields(indy(j))+off_fields(indy(j))), i) = 0.
+		   else
+               ens_p((1+off_fields(indy(j))):(dim_fields(indy(j))+off_fields(indy(j))), i) = &
+               state_p((1+off_fields(indy(j))):(dim_fields(indy(j))+off_fields(indy(j))))
+		   endif
+       enddo
+   END DO
+   DEALLOCATE(indy)
    
 ! ****************
 ! *** clean up ***
@@ -838,10 +908,10 @@ SUBROUTINE init_ens_pdaf(filtertype, dim_p, dim_ens, state_p, Uinv, &
 
 END SUBROUTINE init_ens_pdaf
 
-!! __Revision history:__
-!! * 2004-10 - Lars Nerger - Initial code
-!! *Later revisions - see svn log
-!! procedure for log-normal parameters
+! __Revision history:__
+! * 2004-10 - Lars Nerger - Initial code
+! *Later revisions - see svn log
+! procedure for log-normal parameters
 REAL FUNCTION perturb_lognorm (val_in, relvar, rnd_seed)
 ! FUNCTION - generate random perturbation of parameters
            ! in a lognormal distribution
@@ -916,5 +986,6 @@ REAL FUNCTION perturb_norm (val_in, relvar, rnd_seed)
 ! elements must be between 0 and 4095, and ISEED(4) must be
 ! odd.
     CALL DLARNV(3, f_seed, 1, rnd_num)
-    perturb_norm = rnd_num
+    ! perturb_norm = rnd_num
+	perturb_norm = val_in + relvar*rnd_num
 END FUNCTION perturb_norm

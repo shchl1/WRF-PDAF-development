@@ -133,6 +133,7 @@ MODULE mod_assimilation
                            !< (1) use identity transformation
 !    ! LSEIK/LETKF/LESTKF
   REAL(8) :: local_range   !< Range for local observation domain
+  REAL(8) :: local_rangev   !< Range for local observation domain
   INTEGER :: locweight     !< Type of localizing weighting of observations
                     !<   * (0) constant weight of 1
                     !<   * (1) exponentially decreasing with SRANGE
@@ -155,10 +156,10 @@ MODULE mod_assimilation
   INTEGER :: dim_cvec = 0  !< Size of control vector (parameterized part; for subtypes 0,1)
   INTEGER :: dim_cvec_ens = 0   !< Size of control vector (ensemble part; for subtypes 1,2)
   INTEGER :: mcols_cvec_ens = 1 !< Multiplication factor for number of columns for ensemble control vector
-  REAL :: beta_3dvar = 0.5 !< Hybrid weight for hybrid 3D-Var
+  REAL(8) :: beta_3dvar = 0.5 !< Hybrid weight for hybrid 3D-Var
 !    ! NETF/LNETF
   INTEGER :: type_winf     ! Set weights inflation: (1) activate
-  REAL    :: limit_winf    ! Limit for weights inflation: N_eff/N>limit_winf
+  REAL(8)    :: limit_winf    ! Limit for weights inflation: N_eff/N>limit_winf
 !    ! Particle filter
   INTEGER :: pf_res_type   ! Resampling type for PF
                            ! (1) probabilistic resampling
@@ -167,7 +168,7 @@ MODULE mod_assimilation
   INTEGER :: pf_noise_type    ! Resampling type for PF
                            ! (0) no perturbations, (1) constant stddev, 
                            ! (2) amplitude of stddev relative of ensemble variance
-  REAL :: pf_noise_amp     ! Noise amplitude (>=0.0, only used if pf_noise_type>0)
+  REAL(8) :: pf_noise_amp     ! Noise amplitude (>=0.0, only used if pf_noise_type>0)
 
 !    ! File output - available as a command line option
   CHARACTER(len=110) :: filename  !< file name for assimilation output
@@ -184,6 +185,13 @@ MODULE mod_assimilation
   REAL(8) :: coords_l(3)      !< Coordinates of local analysis domain
   INTEGER, ALLOCATABLE :: id_lstate_in_pstate(:) !< Indices of local state vector in PE-local global state vector
 
+! *** FOR SINGLE POINT EXPERIMENT ***
+
+  LOGICAL :: sp_experiment  !< Whether to run a SINGLE POINT EXPERIMENT
+  REAL(8) :: delt_omb      !< obs - ensemble mean
+  REAL(8) :: ens_mean !< ensemble mean
+  REAL(8) :: spe_x, spe_y, spe_z !< grid number of SPE
+    
 ! *** Variables to handle multiple fields in the state vector ***
 
   INTEGER :: n_fields      !< number of fields in state vector
@@ -207,8 +215,8 @@ MODULE mod_assimilation
   TYPE(field_ids) :: id
   
 ! Constants for coordinate calculations
-  real(8), parameter  :: pi = 3.14159265358979323846
-  real(8)             :: deg2rad = pi / 180.0   ! Conversion from degrees to radian
+  REAL(8), parameter  :: pi = 3.14159265358979323846
+  REAL(8)             :: deg2rad = pi / 180.0   ! Conversion from degrees to radian
 
 !$OMP THREADPRIVATE(coords_l, id_lstate_in_pstate)
 

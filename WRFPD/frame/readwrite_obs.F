@@ -65,6 +65,7 @@ SUBROUTINE init_file_syn_obs(dim_obs_max, file_obs, screen)
   ! Define variables
   s = s + 1
   stat(s) = NF90_DEF_VAR(fileid, 'time', NF90_DOUBLE, dimid_iter, Id_time) 
+  ! NF90_FLOAT
 
   dimids(1) = DimId_obs
   dimids(2) = dimid_iter
@@ -230,6 +231,7 @@ SUBROUTINE read_syn_obs(file_obs, dim_obs_f, observation_f, offset, screen)
   IMPLICIT NONE
 
 ! *** Arguments ***
+  ! INTEGER, INTENT(in) :: step        !< Currrent time step
   INTEGER, INTENT(in) :: dim_obs_f   !< Dimension of full observation vector
   REAL(8), INTENT(out)   :: observation_f(dim_obs_f) !< Full observation vector
   CHARACTER(len=*)    :: file_obs    !< Name of observation file
@@ -240,10 +242,11 @@ SUBROUTINE read_syn_obs(file_obs, dim_obs_f, observation_f, offset, screen)
   INTEGER :: i, s                         ! Counters
   INTEGER, save :: iter=0                 ! file iteration counter
   INTEGER :: fileid                       ! netcdf-ID of file
-  INTEGER :: id_obs                       ! IDs for dimensions
+  INTEGER :: id_obs                       ! IDs for dimensions  , id_time
   INTEGER :: id_dimobsmax                 ! ID for dimension variable
   INTEGER :: stat(100)                    ! status flag
   INTEGER :: countv(2), startv(2)         ! index arrays for writing
+  ! REAL(8)    :: ntime                         ! Currrent time / real(step)
 
   INTEGER :: dim_obs_max   ! maximum observation dimension in file
   INTEGER :: dim_obs_store ! size of observation vector to be stored, min(dim_obs_max, dim_obs_f)
@@ -284,7 +287,21 @@ SUBROUTINE read_syn_obs(file_obs, dim_obs_f, observation_f, offset, screen)
      dim_obs_store = dim_obs_max
      WRITE (*,*) 'WARNING: Truncating observations to maximum observation dimension in file'
   END IF
+  
+  ! ! Write time
+  ! stat(s) = NF90_INQ_VARID(fileid, 'time', id_time)
+  ! s = s + 1
 
+  ! startv(1) = iter+Offset
+  ! countv(1) = 1
+  ! stat(s) = NF90_GET_VAR(fileid, id_time, ntime, start=startv(1:1))
+  ! s = s + 1
+  
+  ! ! added by Changliang Shao on 20230515
+  ! if ((ntime - real(step)) > 0.001) then
+      ! WRITE(*, *) 'reading observations at wrong time ', ntime, ' step should be ', step
+  ! endif
+  
   ! Write vector of observations
   stat(s) = NF90_INQ_VARID(fileid, 'obs', id_obs)
   s = s + 1

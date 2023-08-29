@@ -14,6 +14,7 @@ MODULE obs_op_pdafomi_GNSS
   USE PDAFomi_obs_f, ONLY: obs_f, PDAFomi_gather_obsstate, debug
   
   ! added by Changliang Shao on 2022.1228
+  USE PDAFomi_obs_op, ONLY: PDAFomi_get_interp_coeff_lin  
   USE module_domain, ONLY : head_grid, get_ijk_from_grid
   USE mod_assimilation, &      ! Variables for assimilation
        ONLY: deg2rad, n_fields, off_fields, dim_fields, twin_experiment, &
@@ -21,7 +22,6 @@ MODULE obs_op_pdafomi_GNSS
              ids, ide, jds, jde, kds, kde,    &
              ims, ime, jms, jme, kms, kme,    &
              ips, ipe, jps, jpe, kps, kpe
-  USE PDAFomi_obs_op, ONLY: PDAFomi_get_interp_coeff_lin  
 
 CONTAINS
 
@@ -71,12 +71,12 @@ CONTAINS
     REAL(8), INTENT(inout) :: obs_f_all(:)    !< Full observed state for all observation types (nobs_f_all)
 
 ! *** Local variables ***
-    INTEGER :: i, j, k, row, l                      ! Counter
+    INTEGER :: i, j, k, row, l, ite, jte, cnt1    ! Counter
     REAL(8), ALLOCATABLE :: ostate_p(:)       ! local observed part of state vector
-    REAL :: rrows                          ! Real-value for nrows
-	real    :: const, part, term1, term2, wzd, hzd, zf
-	real    :: a_ew, b_ew, coeff
-	real    :: wdk1, wdk2, zdk1, zdk2, zdk3, kappa, gas_constant, cp
+    REAL(8) :: rrows                          ! REAL(8)-value for nrows
+	REAL(8)    :: const, part, term1, term2, wzd, hzd, zf
+	REAL(8)    :: a_ew, b_ew, coeff, dh, p, t, qv, psfc
+	REAL(8)    :: wdk1, wdk2, zdk1, zdk2, zdk3, kappa, gas_constant, cp
 	
 	zdk1 = 2.2768e-5 
     zdk2 = 2.66e-3 
@@ -133,28 +133,36 @@ CONTAINS
        ! ***      of elements of the state vector             ***
 
        rrows = REAL(nrows)
-	   l = 1
-       DO j = jps, MIN(jpe,jde-1)
-	       DO i = ips, MIN(ipe,ide-1)
+	   ite = MIN(ipe,ide-1)
+	   jte = MIN(jpe,jde-1)
+	   cnt1 = ite - ips + 1
+	   ! l = 1
+       DO j = jps, jte
+	       DO i = ips, ite
+		       l = i-ips+1 + cnt1*(j-jps)
 		       ostate_p(l) = 0.0
 			   ! Wet delay:
 			   wzd = 0.0
+			   psfc = state_p(thisobs%id_obs_p(4*(kpe-kps)+1,l))
 		       DO k = kps, kpe-1
-			       const  = (head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j)- &
-				       head_grid%ph_2(i,k,j)-head_grid%phb(i,k,j))/9.81/a_ew
-                   part   = (head_grid%p(i,k,j)+head_grid%pb(i,k,j))* &
-				       head_grid%moist(i,k,j,2)/(1.0+head_grid%moist(i,k,j,2))/ &
-					   ((head_grid%t_2(i,k,j)+300.)*((head_grid%p(i,k,j)+head_grid%pb(i,k,j))/ &
-					   100000.)**kappa)
+			       dh = state_p(thisobs%id_obs_p(k,l))
+				   p = state_p(thisobs%id_obs_p(k+(kpe-kps)*3,l))
+				   p = p+head_grid%pb(i,k,j)
+			       t = state_p(thisobs%id_obs_p(k+(kpe-kps)*1,l))
+				   t = (t+300.)*(p/100000.)**kappa
+				   qv = state_p(thisobs%id_obs_p(k+(kpe-kps)*2,l))
+				   qv = qv/(1.0+qv)
+			       const  = dh / a_ew
+                   part   = p * qv / t
                    term1  = part * const * wdk1
-                   term2  = part * const * wdk2 / (head_grid%t_2(i,k,j)+300.)
+                   term2  = part * const * wdk2 / t
                    wzd    = wzd + term1 + term2
 			   ENDDO
 			   ! Hydrostatic delay (Saastamoinen 1972):
 			   ! IDEAL:
-			   zf = (1.0 - zdk2*cos(2.0*(20.-100.*15./111.+real(j)*15./111.)*deg2rad) - &
+			   zf = (1.0 - zdk2*cos(2.0*(20.+(real(j)-101.)*15./111.)*deg2rad) - &
 			       zdk3*head_grid%ht(i,j))
-               hzd = zdk1 * head_grid%psfc(i,j) / zf
+               hzd = zdk1 * psfc / zf
 			   ! REAL:
 			   ! zf = (1.0 - zdk2*cos(2.0*head_grid%XLAT(i,j)*deg2rad) - zdk3*head_grid%ht(i,j))
                ! hzd = zdk1 * head_grid%psfc(i,j) / zf
@@ -167,9 +175,50 @@ CONTAINS
                ! ostate_p(l) = ostate_p(l) / rrows
 			   ! CALL PDAFomi_get_interp_coeff_lin(num_gp, n_dim, gpc, oc, icoeff)
 			   
-		       l = l + 1
+		       ! l = l + 1
 		   ENDDO
 	   ENDDO
+	   
+	   ! cnt1 = ite - ips + 1
+       ! DO j = jps, jte
+	     ! DO k = kps, kpe-1
+	       ! DO i = ips, ite
+		       ! l = i-ips+1 + cnt1*(j-jps)
+		       ! ostate_p(l) = 0.0
+			   ! ! Wet delay:
+			   ! wzd = 0.0
+			   ! psfc = state_p(thisobs%id_obs_p(4*(kpe-kps)+1,l))
+			   ! dh = state_p(thisobs%id_obs_p(k,l))
+			   ! t = state_p(thisobs%id_obs_p(k+(kpe-kps)*1,l))
+			   ! qv = state_p(thisobs%id_obs_p(k+(kpe-kps)*2,l))
+			   ! p = state_p(thisobs%id_obs_p(k+(kpe-kps)*3,l))
+			   ! const  = dh/a_ew
+               ! part   = (p+head_grid%pb(i,k,j))* qv/(1.0+qv)/ &
+					   ! ((t+300.)*((p+head_grid%pb(i,k,j))/ &
+					   ! 100000.)**kappa)
+               ! term1  = part * const * wdk1
+               ! term2  = part * const * wdk2 / (t+300.)
+               ! wzd    = wzd + term1 + term2
+			   
+			   ! ! Hydrostatic delay (Saastamoinen 1972):
+			   ! ! IDEAL:
+			   ! zf = (1.0 - zdk2*cos(2.0*(20.-100.*15./111.+real(j)*15./111.)*deg2rad) - &
+			       ! zdk3*head_grid%ht(i,j))
+               ! hzd = zdk1 * psfc / zf
+			   ! ! REAL:
+			   ! ! zf = (1.0 - zdk2*cos(2.0*head_grid%XLAT(i,j)*deg2rad) - zdk3*head_grid%ht(i,j))
+               ! ! hzd = zdk1 * head_grid%psfc(i,j) / zf
+			   ! !-----To save the ZTD in cm to ztd:
+               ! ostate_p(l) = (wzd + hzd) * 1.e2
+			   ! ! for average or interpolation
+               ! ! DO row = 1, nrows
+                  ! ! ostate_p(l) = ostate_p(l) + state_p(thisobs%id_obs_p(row,l))
+               ! ! END DO
+               ! ! ostate_p(l) = ostate_p(l) / rrows
+			   ! ! CALL PDAFomi_get_interp_coeff_lin(num_gp, n_dim, gpc, oc, icoeff)
+		   ! ENDDO
+		 ! ENDDO
+	   ! ENDDO
 
 
        ! *************************************************
@@ -207,10 +256,10 @@ CONTAINS
     REAL(8), INTENT(inout) :: obs_f_all(:)    !< Full observed state for all observation types (nobs_f_all)
 
 ! *** Local variables ***
-    INTEGER :: i, j, k, row, l                      ! Counter
+    INTEGER :: i, j, k, row, l, ite, jte, cnt1    ! Counter
     REAL(8), ALLOCATABLE :: ostate_p(:)       ! local observed part of state vector
-    REAL :: rrows                          ! Real-value for nrows
-	real    :: pw	
+    REAL(8) :: rrows                          ! REAL(8)-value for nrows
+	REAL(8)    :: pw, dh, qv, rho
 
 
 ! *********************************************
@@ -253,17 +302,22 @@ CONTAINS
        ! ***      of elements of the state vector             ***
 
        rrows = REAL(nrows)
-	   l = 1
-       DO j = jps, MIN(jpe,jde-1)
-	       DO i = ips, MIN(ipe,ide-1)
+	   ite = MIN(ipe,ide-1)
+	   jte = MIN(jpe,jde-1)
+	   ! l = 1
+	   cnt1 = ite - ips + 1
+       DO j = jps, jte
+	       DO i = ips, ite
+		       l = i-ips+1 + cnt1*(j-jps)
 		       ostate_p(l) = 0.0
 			   ! Wet delay:
 			   pw = 0.0
 		       DO k = kps, kpe-1
-			       pw = pw + (head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j)- &
-				       head_grid%ph_2(i,k,j)-head_grid%phb(i,k,j))/9.81* &
-					   (head_grid%moist(i,k,j,2)/(1.0+head_grid%moist(i,k,j,2))* &
-					   head_grid%rho(i,k,j))
+			       dh = state_p(thisobs%id_obs_p(k,l))
+				   qv = state_p(thisobs%id_obs_p(k+(kpe-kps)*1,l))
+				   qv = qv/(1.0+qv)
+			       rho = state_p(thisobs%id_obs_p(k+(kpe-kps)*2,l))
+			       pw = pw + dh * qv * rho
 			   ENDDO
 			   ! To convert the unit of PW to cm:
                ostate_p(l) = 0.1*pw
@@ -274,9 +328,27 @@ CONTAINS
                ! ostate_p(l) = ostate_p(l) / rrows
 			   ! CALL PDAFomi_get_interp_coeff_lin(num_gp, n_dim, gpc, oc, icoeff)
 			   
-		       l = l + 1
+		       ! l = l + 1
 		   ENDDO
 	   ENDDO
+	   
+	   ! cnt1 = ite - ips + 1
+       ! DO j = jps, jte
+	     ! DO k = kps, kpe-1
+	       ! DO i = ips, ite
+		       ! l = i-ips+1 + cnt1*(j-jps)
+		       ! ostate_p(l) = 0.0
+			   ! ! Wet delay:
+			   ! pw = 0.0
+			   ! dh = state_p(thisobs%id_obs_p(k,l))
+			   ! qv = state_p(thisobs%id_obs_p(k+(kpe-kps)*1,l))
+			   ! rho = state_p(thisobs%id_obs_p(k+(kpe-kps)*2,l))
+			   ! pw = pw + dh * qv/(1.0+qv) * rho			   
+			   ! ! To convert the unit of PW to cm:
+               ! ostate_p(l) = 0.1*pw
+		   ! ENDDO
+		 ! ENDDO
+	   ! ENDDO
 
 
        ! *************************************************

@@ -36,6 +36,7 @@ SUBROUTINE init_dim_obs_pdafomi(step, dim_obs)
   USE obs_SOUND_U_pdafomi, ONLY: assim_SOUND_U, init_dim_obs_SOUND_U
   USE obs_SOUND_V_pdafomi, ONLY: assim_SOUND_V, init_dim_obs_SOUND_V
   USE obs_SOUND_T_pdafomi, ONLY: assim_SOUND_T, init_dim_obs_SOUND_T
+  USE obs_SOUND_PH_pdafomi, ONLY: assim_SOUND_PH, init_dim_obs_SOUND_PH
   USE obs_GNSS_PW_pdafomi, ONLY: assim_GNSS_PW, init_dim_obs_GNSS_PW
   USE obs_GNSS_ZTD_pdafomi, ONLY: assim_GNSS_ZTD, init_dim_obs_GNSS_ZTD
 ! added by Changliang Shao on 2022.1228
@@ -51,6 +52,7 @@ SUBROUTINE init_dim_obs_pdafomi(step, dim_obs)
   INTEGER :: dim_obs_SOUND_U ! Observation dimensions
   INTEGER :: dim_obs_SOUND_V ! Observation dimensions
   INTEGER :: dim_obs_SOUND_T ! Observation dimensions
+  INTEGER :: dim_obs_SOUND_PH ! Observation dimensions
   INTEGER :: dim_obs_GNSS_PW ! Observation dimensions
   INTEGER :: dim_obs_GNSS_ZTD ! Observation dimensions
   
@@ -73,6 +75,7 @@ SUBROUTINE init_dim_obs_pdafomi(step, dim_obs)
   dim_obs_SOUND_U = 0
   dim_obs_SOUND_V = 0
   dim_obs_SOUND_T = 0
+  dim_obs_SOUND_PH = 0
   dim_obs_GNSS_PW = 0
   dim_obs_GNSS_ZTD = 0
 
@@ -82,11 +85,12 @@ SUBROUTINE init_dim_obs_pdafomi(step, dim_obs)
   IF (assim_SOUND_U) CALL init_dim_obs_SOUND_U(step, dim_obs_SOUND_U)
   IF (assim_SOUND_V) CALL init_dim_obs_SOUND_V(step, dim_obs_SOUND_V)
   IF (assim_SOUND_T) CALL init_dim_obs_SOUND_T(step, dim_obs_SOUND_T)
+  IF (assim_SOUND_PH) CALL init_dim_obs_SOUND_PH(step, dim_obs_SOUND_PH)
   IF (assim_GNSS_PW) CALL init_dim_obs_GNSS_PW(step, dim_obs_GNSS_PW)
   IF (assim_GNSS_ZTD) CALL init_dim_obs_GNSS_ZTD(step, dim_obs_GNSS_ZTD)
 
   dim_obs = dim_obs_SOUND_U + dim_obs_SOUND_V + dim_obs_SOUND_T + &
-            dim_obs_GNSS_PW + dim_obs_GNSS_ZTD
+            dim_obs_SOUND_PH + dim_obs_GNSS_PW + dim_obs_GNSS_ZTD
 
 END SUBROUTINE init_dim_obs_pdafomi
 
@@ -104,6 +108,7 @@ SUBROUTINE obs_op_pdafomi(step, dim_p, dim_obs, state_p, ostate)
   USE obs_SOUND_U_pdafomi, ONLY: assim_SOUND_U, obs_op_SOUND_U, init_dim_obs_SOUND_U
   USE obs_SOUND_V_pdafomi, ONLY: assim_SOUND_V, obs_op_SOUND_V, init_dim_obs_SOUND_V
   USE obs_SOUND_T_pdafomi, ONLY: assim_SOUND_T, obs_op_SOUND_T, init_dim_obs_SOUND_T
+  USE obs_SOUND_PH_pdafomi, ONLY: assim_SOUND_PH, obs_op_SOUND_PH, init_dim_obs_SOUND_PH
   USE obs_GNSS_PW_pdafomi, ONLY: assim_GNSS_PW, obs_op_GNSS_PW, init_dim_obs_GNSS_PW
   USE obs_GNSS_ZTD_pdafomi, ONLY: assim_GNSS_ZTD, obs_op_GNSS_ZTD, init_dim_obs_GNSS_ZTD
 
@@ -127,6 +132,7 @@ SUBROUTINE obs_op_pdafomi(step, dim_p, dim_obs, state_p, ostate)
   IF (assim_SOUND_U) CALL obs_op_SOUND_U(dim_p, dim_obs, state_p, ostate)
   IF (assim_SOUND_V) CALL obs_op_SOUND_V(dim_p, dim_obs, state_p, ostate)
   IF (assim_SOUND_T) CALL obs_op_SOUND_T(dim_p, dim_obs, state_p, ostate)
+  IF (assim_SOUND_PH) CALL obs_op_SOUND_PH(dim_p, dim_obs, state_p, ostate)
   IF (assim_GNSS_PW) CALL obs_op_GNSS_PW(dim_p, dim_obs, state_p, ostate)
   IF (assim_GNSS_ZTD) CALL obs_op_GNSS_ZTD(dim_p, dim_obs, state_p, ostate)
 	! print *, 'size(ostate), mean(ostate) = ', size(ostate), sum(ostate)/size(ostate)
@@ -150,6 +156,7 @@ SUBROUTINE init_dim_obs_l_pdafomi(domain_p, step, dim_obs, dim_obs_l)
   USE obs_SOUND_U_pdafomi, ONLY: assim_SOUND_U, init_dim_obs_l_SOUND_U
   USE obs_SOUND_V_pdafomi, ONLY: assim_SOUND_V, init_dim_obs_l_SOUND_V
   USE obs_SOUND_T_pdafomi, ONLY: assim_SOUND_T, init_dim_obs_l_SOUND_T
+  USE obs_SOUND_PH_pdafomi, ONLY: assim_SOUND_PH, init_dim_obs_l_SOUND_PH
   USE obs_GNSS_PW_pdafomi, ONLY: assim_GNSS_PW, init_dim_obs_l_GNSS_PW
   USE obs_GNSS_ZTD_pdafomi, ONLY: assim_GNSS_ZTD, init_dim_obs_l_GNSS_ZTD
 
@@ -175,6 +182,7 @@ SUBROUTINE init_dim_obs_l_pdafomi(domain_p, step, dim_obs, dim_obs_l)
   IF (assim_SOUND_U) CALL init_dim_obs_l_SOUND_U(domain_p, step, dim_obs, dim_obs_l)
   IF (assim_SOUND_V) CALL init_dim_obs_l_SOUND_V(domain_p, step, dim_obs, dim_obs_l)
   IF (assim_SOUND_T) CALL init_dim_obs_l_SOUND_T(domain_p, step, dim_obs, dim_obs_l)
+  IF (assim_SOUND_PH) CALL init_dim_obs_l_SOUND_PH(domain_p, step, dim_obs, dim_obs_l)
   IF (assim_GNSS_PW) CALL init_dim_obs_l_GNSS_PW(domain_p, step, dim_obs, dim_obs_l)
   IF (assim_GNSS_ZTD) CALL init_dim_obs_l_GNSS_ZTD(domain_p, step, dim_obs, dim_obs_l)
 
@@ -195,6 +203,7 @@ SUBROUTINE localize_covar_pdafomi(dim_p, dim_obs, HP_p, HPH)
   USE obs_SOUND_U_pdafomi, ONLY: assim_SOUND_U, localize_covar_SOUND_U
   USE obs_SOUND_V_pdafomi, ONLY: assim_SOUND_V, localize_covar_SOUND_V
   USE obs_SOUND_T_pdafomi, ONLY: assim_SOUND_T, localize_covar_SOUND_T
+  USE obs_SOUND_PH_pdafomi, ONLY: assim_SOUND_PH, localize_covar_SOUND_PH
   USE obs_GNSS_PW_pdafomi, ONLY: assim_GNSS_PW, localize_covar_GNSS_PW
   USE obs_GNSS_ZTD_pdafomi, ONLY: assim_GNSS_ZTD, localize_covar_GNSS_ZTD
 ! added by Changliang Shao on 2022.1228
@@ -331,6 +340,7 @@ SUBROUTINE localize_covar_pdafomi(dim_p, dim_obs, HP_p, HPH)
   IF (assim_SOUND_U) CALL localize_covar_SOUND_U(dim_p, dim_obs, HP_p, HPH, coords_p)
   IF (assim_SOUND_V) CALL localize_covar_SOUND_V(dim_p, dim_obs, HP_p, HPH, coords_p)
   IF (assim_SOUND_T) CALL localize_covar_SOUND_T(dim_p, dim_obs, HP_p, HPH, coords_p)
+  IF (assim_SOUND_PH) CALL localize_covar_SOUND_PH(dim_p, dim_obs, HP_p, HPH, coords_p)
   IF (assim_GNSS_PW) CALL localize_covar_GNSS_PW(dim_p, dim_obs, HP_p, HPH, coords_p)
   IF (assim_GNSS_ZTD) CALL localize_covar_GNSS_ZTD(dim_p, dim_obs, HP_p, HPH, coords_p)
 

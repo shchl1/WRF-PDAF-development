@@ -19,7 +19,7 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
 
   USE mod_assimilation, &      ! Variables for assimilation
        ONLY: coords_l, id_lstate_in_pstate, n_fields, off_fields, deg2rad, &
-	   ids, ide, jds, jde, kds, kde,    &
+	   ids, ide, jds, jde, kds, kde, local_range, local_rangev, &
 	   ims, ime, jms, jme, kms, kme,    &
 	   ips, ipe, jps, jpe, kps, kpe
   USE module_domain, ONLY : head_grid, get_ijk_from_grid
@@ -43,7 +43,7 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
   ! Template reminder - delete when implementing functionality
   ! WRITE (*,*) 'init_dim_l_pdaf: Set local state dimension here!'
 
-  dim_l = n_fields
+  dim_l = n_fields - 7
   ! dim_l = 1
 
 ! **********************************************
@@ -82,7 +82,8 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
   coords_l(1) = real(i)*15.
   coords_l(2) = real(j)*15.
   coords_l(3) = (head_grid%ph_2(i,k,j)+head_grid%phb(i,k,j)+ &
-       head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81*0.001*5.
+       head_grid%ph_2(i,k+1,j)+head_grid%phb(i,k+1,j))/2./9.81*0.001* &
+					 local_range/local_rangev
   
   ! print *, 'domain_p= ', domain_p, 'i,j,k= ', i, j, k
   ! for real case below
@@ -235,7 +236,7 @@ SUBROUTINE init_dim_l_pdaf(step, domain_p, dim_l)
   ! id_lstate_in_pstate = off_fields + domain_p - cnt1 - cnt2 - cnt3
 
   ALLOCATE(id_lstate_in_pstate(dim_l)) ! SCHEME 3 grid a
-  id_lstate_in_pstate = off_fields + domain_p
+  id_lstate_in_pstate(1:dim_l) = off_fields(1:dim_l) + domain_p
   ! id_lstate_in_pstate = off_fields(5) + domain_p ! only for T
   
   ! ALLOCATE(id_lstate_in_pstate(dim_l)) ! SCHEME 4 grid c

@@ -36,12 +36,17 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
        ONLY: mype_filter, npes_filter, COMM_filter, MPIerr, MPIstatus
   USE mod_assimilation, &      ! Assimilation variables
        ONLY: dim_state, n_fields, dim_fields, off_fields, nam_fields, &
-	   startn, filtertype
+	   startn, filtertype,  &
+	   ids, ide, jds, jde, kds, kde,    &
+	   ims, ime, jms, jme, kms, kme,    &
+	   ips, ipe, jps, jpe, kps, kpe,    &
+	   ens_mean, sp_experiment, spe_x, spe_y, spe_z
   ! added by Changliang Shao on 2022.1228
   USE module_domain, ONLY : head_grid, get_ijk_from_grid 
   USE obs_SOUND_T_pdafomi, ONLY : assim_SOUND_T, file_syntobs_SOUND_T
   USE obs_SOUND_U_pdafomi, ONLY : assim_SOUND_U, file_syntobs_SOUND_U
   USE obs_SOUND_V_pdafomi, ONLY : assim_SOUND_V, file_syntobs_SOUND_V
+  USE obs_SOUND_PH_pdafomi, ONLY : assim_SOUND_PH, file_syntobs_SOUND_PH
   USE obs_GNSS_PW_pdafomi, ONLY : assim_GNSS_PW, file_syntobs_GNSS_PW
   USE obs_GNSS_ZTD_pdafomi, ONLY : assim_GNSS_ZTD, file_syntobs_GNSS_ZTD
 
@@ -86,10 +91,11 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   REAL(8), ALLOCATABLE :: state(:)       ! global state vector
   REAL(8),ALLOCATABLE :: ens_p_tmp(:,:)  ! Temporary ensemble for some PE-domain
   REAL(8),ALLOCATABLE :: state_p_tmp(:)  ! Temporary state for some PE-domain  
-  REAL(8),ALLOCATABLE :: obs_t(:),obs_u(:),obs_v(:),obs_tmp(:)    !< PE-local observation
+  REAL(8),ALLOCATABLE :: obs_t(:),obs_u(:),obs_v(:),obs_ph(:),obs_tmp(:)    !< PE-local observation
+  REAL(8),ALLOCATABLE :: obs_pw(:),obs_ztd(:)    !< PE-local observation
   INTEGER,ALLOCATABLE :: local_dims(:)   ! PE(/=0)-local state dimension
-  INTEGER             :: dimtmp, ierr, dim_fields_tmp
-  integer                   :: k,mm,dimx,dimy,dimz,dimp,     &
+  INTEGER             :: dimtmp, ierr, dim_fields_tmp, ite, jte
+  integer                   :: k,l,mm,dimx,dimy,dimz,dimp,     &
                                cnt1,cnt2,cnt3,cnt4,cnt5
   integer,dimension(6) :: m
   character(len=100) :: out_pathf
@@ -149,6 +155,9 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   ALLOCATE(obs_t(dim_fields(5)))
   ALLOCATE(obs_u(dim_fields(1)))
   ALLOCATE(obs_v(dim_fields(2)))
+  ALLOCATE(obs_ph(dim_fields(4)))
+  ALLOCATE(obs_pw(dim_fields(5)/(kpe-kps)))
+  ALLOCATE(obs_ztd(dim_fields(5)/(kpe-kps)))
   
   ! Initialize numbers
   variance_p = 0.0
@@ -161,6 +170,7 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   obs_t = 0.0
   obs_u = 0.0
   obs_v = 0.0
+  obs_ph = 0.0
   invdim_ens    = 1.0 / REAL(dim_ens)  
   IF (dim_ens > 1) THEN
     invdim_ensm1  = 1.0 / REAL(dim_ens - 1)
@@ -175,11 +185,20 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
 	                dim_fields(2), obs_v, abs(step), 1-mype_filter)
     CALL read_syn_obs_prepost(file_syntobs_SOUND_T, &
 	                dim_fields(5), obs_t, abs(step), 1-mype_filter)
+    CALL read_syn_obs_prepost(file_syntobs_SOUND_PH, &
+	                dim_fields(4), obs_ph, abs(step), 1-mype_filter)
+    CALL read_syn_obs_prepost(file_syntobs_GNSS_PW, &
+	                dim_fields(5)/(kpe-kps), obs_pw, abs(step), 1-mype_filter)
+    CALL read_syn_obs_prepost(file_syntobs_GNSS_ZTD, &
+	                dim_fields(5)/(kpe-kps), obs_ztd, abs(step), 1-mype_filter)
   ENDIF
   
   print*, 'sum(obs_t)/size(obs_t)= ', sum(obs_t)/size(obs_t)
   print*, 'sum(obs_u)/size(obs_u)= ', sum(obs_u)/size(obs_u)
   print*, 'sum(obs_v)/size(obs_v)= ', sum(obs_v)/size(obs_v)
+  print*, 'sum(obs_ph)/size(obs_ph)= ', sum(obs_ph)/size(obs_ph)
+  print*, 'sum(obs_pw)/size(obs_pw)= ', sum(obs_pw)/size(obs_pw)
+  print*, 'sum(obs_ztd)/size(obs_ztd)= ', sum(obs_ztd)/size(obs_ztd)
 
 
 ! **************************************************************
@@ -209,6 +228,34 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   ELSE
      variance_p(:) = invdim_ens * variance_p(:)
   ENDIF
+  
+! for single point experiment
+  if (sp_experiment) then 
+    ite = MIN(ipe,ide-1)
+    jte = MIN(jpe,jde-1)
+    ! calculation of ensemble mean
+    if (spe_x>=ips .and. spe_x<=ite .and. spe_y>=jps .and. spe_y<=jte &
+	  .and. spe_z>=kps .and. spe_z<=(kpe-1)) then
+	  dimz = (ite-ips+1)*(kpe-kps)*(jte-jps+1)
+	  dimy = (ite-ips+1)*(kpe-kps)
+	  dimx = ite-ips+1
+	  l = spe_x-ips+1 + (spe_z-kps)*dimx + (spe_y-jps)*dimy
+	  if (assim_SOUND_U) then
+        ens_mean = state_p(l+off_fields(1))
+      elseif (assim_SOUND_V) then
+        ens_mean = state_p(l+off_fields(2))
+      elseif (assim_SOUND_T) then
+        ens_mean = state_p(l+off_fields(5))
+      elseif (assim_SOUND_PH) then
+        ens_mean = state_p(l+off_fields(4))
+      else
+        print *, 'spacific variable needed for Single Popint Exp.'
+      endif
+	else
+	  ens_mean = 0.
+	endif
+    print *, 'ens_mean = ', ens_mean
+  endif	    
 
 ! ******************************************************
 ! *** Assemble global variance vector on filter PE 0 ***
@@ -220,7 +267,7 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
 
   ! Total estimated RMS error
   ! This example is univariate - one should distinguish different fields
-  DO i = 1, n_fields
+  DO i = 1, 11
       statmean_p(i) = SUM(state_p((1+off_fields(i)):(dim_fields(i)+off_fields(i))))
       spread_p(i) = SUM(variance_p((1+off_fields(i)):(dim_fields(i)+off_fields(i))))	  
 	  statmean_tmp = 0.0
@@ -260,6 +307,7 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
 	  endif
   ENDDO 
     
+	
 ! *****************
 ! *** Screen IO ***
 ! *****************
@@ -294,6 +342,9 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
   DEALLOCATE(obs_t)
   DEALLOCATE(obs_u)
   DEALLOCATE(obs_v)
+  DEALLOCATE(obs_ph)
+  DEALLOCATE(obs_pw)
+  DEALLOCATE(obs_ztd)
   
 ! *******************
 ! *** File output ***
@@ -310,7 +361,7 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
 
         ! ! *** Send ensemble substates on filter-PEs with rank > 0 ***
         ! do i = 1, dim_ens
-            ! CALL MPI_send(ens_p(1, i), dim_p, MPI_DOUBLE_PRECISION, 0, &
+            ! CALL MPI_send(ens_p(1, i), dim_p, MPI_REAL8, 0, &
             ! mype_filter*100000+i, COMM_filter, MPIerr)
         ! enddo
      ! ELSE mype00b
@@ -331,7 +382,7 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
 
            ! ! Receive sub-arrays
            ! do i = 1, dim_ens
-               ! CALL MPI_recv(ens((1+off_p), i), local_dims(domain), MPI_DOUBLE_PRECISION, &
+               ! CALL MPI_recv(ens((1+off_p), i), local_dims(domain), MPI_REAL8, &
                ! domain-1, (domain-1)*100000+i, COMM_filter, MPIstatus, MPIerr)
            ! enddo
         ! END DO
@@ -371,7 +422,7 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
         ! ! *** Send ensemble substates on filter-PEs with rank > 0 ***
 
         ! CALL MPI_send(state_p, dim_p, &
-             ! MPI_DOUBLE_PRECISION, 0, mype_filter, COMM_filter, MPIerr)
+             ! MPI_REAL8, 0, mype_filter, COMM_filter, MPIerr)
 
      ! ELSE mype00c
 
@@ -389,7 +440,7 @@ SUBROUTINE prepoststep_pdaf(step, dim_p, dim_ens, dim_ens_p, dim_obs_p, &
            ! ! Increment offset
            ! off_p = off_p + local_dims(domain-1)
            ! ! Receive sub-arrays
-           ! CALL MPI_recv(state(1+off_p), local_dims(domain), MPI_DOUBLE_PRECISION, &
+           ! CALL MPI_recv(state(1+off_p), local_dims(domain), MPI_REAL8, &
            ! domain-1, domain-1, COMM_filter, MPIstatus, MPIerr)
         ! END DO
      

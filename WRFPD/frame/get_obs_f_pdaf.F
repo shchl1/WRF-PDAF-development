@@ -29,6 +29,8 @@ SUBROUTINE get_obs_f_pdaf(step, dim_obs, observation)
        ONLY: assim_SOUND_V, file_syntobs_SOUND_V
   USE obs_SOUND_T_pdafomi, &      ! Variables for observation SOUND_T
        ONLY: assim_SOUND_T, file_syntobs_SOUND_T
+  USE obs_SOUND_PH_pdafomi, &      ! Variables for observation SOUND_PH
+       ONLY: assim_SOUND_PH, file_syntobs_SOUND_PH
   USE obs_GNSS_PW_pdafomi, &      ! Variables for observation GNSS_PW
        ONLY: assim_GNSS_PW, file_syntobs_GNSS_PW
   USE obs_GNSS_ZTD_pdafomi, &      ! Variables for observation GNSS_ZTD
@@ -53,7 +55,7 @@ SUBROUTINE get_obs_f_pdaf(step, dim_obs, observation)
   ELSE
       WRITE (stepstr, '(i5.2)') -step
   END IF
-
+  
 ! *************************
 ! *** store observation ***
 ! *************************
@@ -68,6 +70,8 @@ SUBROUTINE get_obs_f_pdaf(step, dim_obs, observation)
 	  CALL write_syn_obs(step, file_syntobs_SOUND_V, dim_obs, observation, 1)
     IF (assim_SOUND_T) &
 	  CALL write_syn_obs(step, file_syntobs_SOUND_T, dim_obs, observation, 1)
+    IF (assim_SOUND_PH) &
+	  CALL write_syn_obs(step, file_syntobs_SOUND_PH, dim_obs, observation, 1)
     IF (assim_GNSS_PW) &
 	  CALL write_syn_obs(step, file_syntobs_GNSS_PW, dim_obs, observation, 1)
     IF (assim_GNSS_ZTD) &

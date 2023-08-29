@@ -20,8 +20,9 @@ SUBROUTINE init_pdaf_parse()
        ONLY: screen, filtertype, subtype, dim_ens, delt_obs, &
        model_error, model_err_amp, incremental, type_forget, &
        forget, epsilon, rank_analysis_enkf, locweight, local_range, &
-       srange, int_rediag, filename, type_trans, &
-       type_sqrt, twin_experiment, startn, ntimes
+       srange, int_rediag, filename, type_trans, local_rangev, &
+       type_sqrt, twin_experiment, startn, ntimes, &
+	   sp_experiment, delt_omb, spe_x, spe_y, spe_z
   USE mod_parallel_pdaf, &
        ONLY: n_modeltasks
   USE obs_SOUND_U_pdafomi, &  ! Variables for observation type SOUND_U
@@ -30,6 +31,8 @@ SUBROUTINE init_pdaf_parse()
        ONLY: assim_SOUND_V, rms_obs_SOUND_V
   USE obs_SOUND_T_pdafomi, &  ! Variables for observation type SOUND_t
        ONLY: assim_SOUND_T, rms_obs_SOUND_T
+  USE obs_SOUND_PH_pdafomi, &  ! Variables for observation type SOUND_t
+       ONLY: assim_SOUND_PH, rms_obs_SOUND_PH
   USE obs_GNSS_PW_pdafomi, &  ! Variables for observation type SOUND_v
        ONLY: assim_GNSS_PW, rms_obs_GNSS_PW
   USE obs_GNSS_ZTD_pdafomi, &  ! Variables for observation type SOUND_t
@@ -74,6 +77,10 @@ SUBROUTINE init_pdaf_parse()
   CALL parse(handle, assim_SOUND_T)
   handle = 'rms_obs_SOUND_T'         ! Assumed uniform RMS error of observations OBSTYPE
   CALL parse(handle, rms_obs_SOUND_T)
+  handle = 'assim_SOUND_PH'           ! Whether to assimilation observation type OBSTYPE
+  CALL parse(handle, assim_SOUND_PH)
+  handle = 'rms_obs_SOUND_PH'         ! Assumed uniform RMS error of observations OBSTYPE
+  CALL parse(handle, rms_obs_SOUND_PH)
   handle = 'assim_GNSS_PW'           ! Whether to assimilation observation type OBSTYPE
   CALL parse(handle, assim_GNSS_PW)
   handle = 'rms_obs_GNSS_PW'         ! Assumed uniform RMS error of observations OBSTYPE
@@ -112,10 +119,24 @@ SUBROUTINE init_pdaf_parse()
   CALL parse(handle, type_sqrt)
   handle = 'twin_experiment'  
   CALL parse(handle, twin_experiment)
-
+  
+  ! Settings for SINGLE POINT EXPERIMENT
+  handle = 'sp_experiment'             ! Whether to run a SINGLE POINT EXPERIMENT
+  CALL parse(handle, sp_experiment)
+  handle = 'delt_omb'             ! obs - ens_mean
+  CALL parse(handle, delt_omb)
+  handle = 'spe_x'               ! x grid number
+  CALL parse(handle, spe_x)
+  handle = 'spe_y'               ! y grid number
+  CALL parse(handle, spe_y)
+  handle = 'spe_z'               ! z grid number
+  CALL parse(handle, spe_z)
+  
   ! Settings for localization in LSEIK/LETKF
   handle = 'local_range'             ! Set range in grid points for observation domain
   CALL parse(handle, local_range)
+  handle = 'local_rangev'             ! Set vertical range in grid points for observation domain
+  CALL parse(handle, local_rangev)
   handle = 'locweight'               ! Set type of localizating weighting
   CALL parse(handle, locweight)
   srange = local_range               ! By default use local_range as support range

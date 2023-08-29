@@ -57,9 +57,9 @@ SUBROUTINE assimilate_pdaf()
 ! *** Call assimilation routine ***
 ! *********************************
 
-  IF (mype_world == 0) THEN
-     WRITE (*,*) 'assimilate_pdaf.F90: here!'
-  END IF
+  ! IF (mype_world == 0) THEN
+     ! WRITE (*,*) 'assimilate_pdaf.F90: here!'
+  ! END IF
   ! Check  whether the filter is domain-localized
   CALL PDAF_get_localfilter(localfilter)
 
