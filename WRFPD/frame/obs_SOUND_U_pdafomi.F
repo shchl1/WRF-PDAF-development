@@ -198,7 +198,7 @@ CONTAINS
 ! added by Changliang Shao on 2022.1228  
     integer                   :: startobs ! start time for obs, 0 for the first obs time. Shao on 2023.0315
     integer                   :: mm,dimx,dimy,dimz,dimp
-	LOGICAL :: sampling = .True.
+	LOGICAL :: sampling = .False.
 
     ! Template reminder - delete when implementing functionality
     WRITE (*,*) 'init_SOUND_U_pdafomi: Initialize observations'
@@ -409,7 +409,7 @@ CONTAINS
 		    l = 0
 			DO j = jps, jte
 			  DO i = ips, ite
-			    if ((mod(i,2)==1) .and. (mod(j,2)==1)) l = l + 1
+			    if ((mod(i,5)==3) .and. (mod(j,5)==3)) l = l + 1
 			  ENDDO
 			ENDDO
 			dim_obs_p = (kpe-kps)*l		
@@ -424,7 +424,7 @@ CONTAINS
 		    DO j = jps, jte
 		      DO k = kps, (kpe-1)
 		        DO i = ips, ite
-				 if ((mod(i,2)==1) .and. (mod(j,2)==1)) then
+				 if ((mod(i,5)==3) .and. (mod(j,5)==3)) then
 		          ! for ideal case on grid point (sampling)
 				  obs_tmp(l) = obs_p(mm)
                   ocoord_p(1,l) = real(i)*15.
