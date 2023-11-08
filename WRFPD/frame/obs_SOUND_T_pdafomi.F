@@ -215,7 +215,7 @@ CONTAINS
 	! 1: Cartesian distance in ncoord dimensions with periodicity (Needs thisobs%domainsize(ncoord))
 	! 2: Approximate geographic distance in meters with horizontal coordinates in radians
 	! 3: Geographic distance computation in meters using haversine formula with horizontal coordinates in radians 
-	thisobs%disttype = 0 
+	thisobs%disttype = 0   ! 0=Cartesian 
 
     ! Number of coordinates used for distance computation
     ! The distance compution starts from the first row
@@ -637,7 +637,7 @@ CONTAINS
     ! Include localization radius and local coordinates
     ! one can also set observation-specific values for the localization.
     USE mod_assimilation, &   
-         ONLY: coords_l, local_range, locweight, srange
+         ONLY: coords_l, cradius, locweight, sradius
 
     IMPLICIT NONE
 
@@ -661,7 +661,7 @@ CONTAINS
     ! coords_l should be set in the call-back routine init_dim_l.
 	
     CALL PDAFomi_init_dim_obs_l(thisobs_l, thisobs, coords_l, &
-         locweight, local_range, srange, dim_obs_l)
+         locweight, cradius, sradius, dim_obs_l)
 
   END SUBROUTINE init_dim_obs_l_SOUND_T
 
@@ -687,7 +687,7 @@ CONTAINS
 
     ! Include localization radius and local coordinates
     USE mod_assimilation, &   
-         ONLY: local_range, locweight, srange
+         ONLY: cradius, locweight, sradius
 
     IMPLICIT NONE
 
@@ -709,7 +709,7 @@ CONTAINS
     ! Here one has to specify the three localization variables
     ! which can be different for each observation type.
 
-    CALL PDAFomi_localize_covar(thisobs, dim_p, locweight, local_range, srange, &
+    CALL PDAFomi_localize_covar(thisobs, dim_p, locweight, cradius, sradius, &
          coords_p, HP_p, HPH)
 
   END SUBROUTINE localize_covar_SOUND_T
